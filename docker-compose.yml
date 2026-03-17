@@ -1,0 +1,13 @@
+services:
+  vault:
+    build: .
+    image: vault:latest
+    ports:
+      - "${PORT}:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:80/api/v1/ping || exit 1"]
+      interval: 1m
+      timeout: 5s
+      retries: 5
+

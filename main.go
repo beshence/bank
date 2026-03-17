@@ -21,7 +21,7 @@ func main() {
 
 	v1handlers.Auth(v1.Group("/auth"))
 
-	err := router.Run(":8080")
+	err := router.Run(":80")
 	if err != nil {
 		return
 	}

@@ -8,9 +8,11 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /usr/local/bin/vault .
 
-FROM debian:bookworm-slim
+FROM alpine:latest
 
 WORKDIR /usr/local/bin
+
+RUN apk add --no-cache curl
 
 COPY --from=builder /usr/local/bin/vault /usr/local/bin/vault
 

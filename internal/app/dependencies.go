@@ -7,13 +7,15 @@ import (
 )
 
 type Dependencies struct {
-	DB         *gorm.DB
-	JWTManager *security.JWTManager
+	DB                *gorm.DB
+	AccessJWTManager  *security.JWTManager
+	RefreshJWTManager *security.JWTManager
 }
 
-func NewDependencies(db *gorm.DB, jwtManager *security.JWTManager) *Dependencies {
+func NewDependencies(db *gorm.DB, accessJWTManager *security.JWTManager, refreshJWTManager *security.JWTManager) *Dependencies {
 	return &Dependencies{
-		DB:         db,
-		JWTManager: jwtManager,
+		DB:                db,
+		AccessJWTManager:  accessJWTManager,
+		RefreshJWTManager: refreshJWTManager,
 	}
 }

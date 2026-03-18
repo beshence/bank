@@ -10,6 +10,7 @@ const (
 	EndpointPing     = "/ping"
 	EndpointRegister = "/auth/register"
 	EndpointLogin    = "/auth/login"
+	EndpointRefresh  = "/auth/refresh"
 	EndpointMe       = "/auth/me"
 	EndpointRepo     = "/repo"
 )

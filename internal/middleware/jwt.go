@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RequireJWT(jwtManager *security.JWTManager) gin.HandlerFunc {
+func RequireJWT(jwtManager *security.JWTManager, expectedTokenType security.TokenType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if jwtManager == nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -38,6 +38,14 @@ func RequireJWT(jwtManager *security.JWTManager) gin.HandlerFunc {
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "invalid token",
+			})
+			return
+		}
+
+		tokenType, tokenTypeOk := security.TokenTypeFromClaims(claims)
+		if !tokenTypeOk || tokenType != expectedTokenType {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"message": "invalid token type",
 			})
 			return
 		}

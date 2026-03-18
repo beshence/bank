@@ -19,7 +19,7 @@ type registerRequest struct {
 
 func RegisterV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if deps == nil || deps.DB == nil || deps.JWTManager == nil {
+		if deps == nil || deps.DB == nil || deps.AccessJWTManager == nil || deps.RefreshJWTManager == nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "auth is not configured",
 			})
@@ -61,20 +61,22 @@ func RegisterV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		token, expiresAt, err := deps.JWTManager.GenerateToken(user.ID, user.Login)
+		tokens, err := issueTokenPair(deps, user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to generate token",
+				"message": "failed to generate tokens",
 			})
 			return
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"id":         user.ID,
-			"login":      user.Login,
-			"token":      token,
-			"token_type": "Bearer",
-			"expires_at": expiresAt,
+			"id":                 user.ID,
+			"login":              user.Login,
+			"token_type":         "Bearer",
+			"access_token":       tokens.AccessToken,
+			"access_expires_at":  tokens.AccessExpiresAt,
+			"refresh_token":      tokens.RefreshToken,
+			"refresh_expires_at": tokens.RefreshExpiresAt,
 		})
 	}
 }

@@ -9,12 +9,21 @@ import (
 type JWTManager struct {
 	secret []byte
 	ttl    time.Duration
+	typeID TokenType
 }
 
-func NewJWTManager(secret string, ttl time.Duration) *JWTManager {
+type TokenType string
+
+const (
+	TokenTypeAccess  TokenType = "access"
+	TokenTypeRefresh TokenType = "refresh"
+)
+
+func NewJWTManager(secret string, ttl time.Duration, typeID TokenType) *JWTManager {
 	return &JWTManager{
 		secret: []byte(secret),
 		ttl:    ttl,
+		typeID: typeID,
 	}
 }
 
@@ -25,6 +34,7 @@ func (m *JWTManager) GenerateToken(userID string, login string) (string, int64, 
 	claims := jwt.MapClaims{
 		"sub":   userID,
 		"login": login,
+		"typ":   string(m.typeID),
 		"iat":   now.Unix(),
 		"exp":   expiresAt.Unix(),
 	}
@@ -53,4 +63,18 @@ func (m *JWTManager) ParseToken(tokenString string) (jwt.MapClaims, error) {
 	}
 
 	return claims, nil
+}
+
+func TokenTypeFromClaims(claims jwt.MapClaims) (TokenType, bool) {
+	typeValue, ok := claims["typ"].(string)
+	if !ok || typeValue == "" {
+		return "", false
+	}
+
+	tokenType := TokenType(typeValue)
+	if tokenType != TokenTypeAccess && tokenType != TokenTypeRefresh {
+		return "", false
+	}
+
+	return tokenType, true
 }

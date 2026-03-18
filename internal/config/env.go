@@ -11,18 +11,20 @@ import (
 )
 
 var (
-	ErrDatabaseURLRequired = errors.New("DATABASE_URL is required")
-	ErrDatabaseURLInvalid  = errors.New("DATABASE_URL is invalid")
-	ErrJWTSecretRequired   = errors.New("JWT_SECRET is required")
-	ErrInvalidJWTTTL       = errors.New("JWT_TTL_SECONDS must be a positive integer")
+	ErrDatabaseURLRequired  = errors.New("DATABASE_URL is required")
+	ErrDatabaseURLInvalid   = errors.New("DATABASE_URL is invalid")
+	ErrJWTSecretRequired    = errors.New("JWT_SECRET is required")
+	ErrInvalidAccessJWTTTL  = errors.New("ACCESS_JWT_TTL_SECONDS must be a positive integer")
+	ErrInvalidRefreshJWTTTL = errors.New("REFRESH_JWT_TTL_SECONDS must be a positive integer")
 )
 
 const internalDatabaseURLDefault = "postgres://vault:vault@postgres:5432/vault?sslmode=disable"
 
 type Env struct {
-	DatabaseURL   string
-	JWTSecret     string
-	JWTTTLSeconds time.Duration
+	DatabaseURL          string
+	JWTSecret            string
+	AccessJWTTTLSeconds  time.Duration
+	RefreshJWTTTLSeconds time.Duration
 }
 
 func Load() (Env, error) {
@@ -41,20 +43,34 @@ func Load() (Env, error) {
 		return Env{}, ErrJWTSecretRequired
 	}
 
-	jwtTTLRaw := os.Getenv("JWT_TTL_SECONDS")
-	if jwtTTLRaw == "" {
-		jwtTTLRaw = "3600"
+	accessJWTTTLRaw := os.Getenv("ACCESS_JWT_TTL_SECONDS")
+	if accessJWTTTLRaw == "" {
+		accessJWTTTLRaw = os.Getenv("JWT_TTL_SECONDS")
+	}
+	if accessJWTTTLRaw == "" {
+		accessJWTTTLRaw = "3600"
 	}
 
-	jwtTTLSeconds, err := strconv.Atoi(jwtTTLRaw)
-	if err != nil || jwtTTLSeconds <= 0 {
-		return Env{}, ErrInvalidJWTTTL
+	accessJWTTTLSeconds, err := strconv.Atoi(accessJWTTTLRaw)
+	if err != nil || accessJWTTTLSeconds <= 0 {
+		return Env{}, ErrInvalidAccessJWTTTL
+	}
+
+	refreshJWTTTLRaw := os.Getenv("REFRESH_JWT_TTL_SECONDS")
+	if refreshJWTTTLRaw == "" {
+		refreshJWTTTLRaw = "31536000"
+	}
+
+	refreshJWTTTLSeconds, err := strconv.Atoi(refreshJWTTTLRaw)
+	if err != nil || refreshJWTTTLSeconds <= 0 {
+		return Env{}, ErrInvalidRefreshJWTTTL
 	}
 
 	return Env{
-		DatabaseURL:   databaseURL,
-		JWTSecret:     jwtSecret,
-		JWTTTLSeconds: time.Duration(jwtTTLSeconds) * time.Second,
+		DatabaseURL:          databaseURL,
+		JWTSecret:            jwtSecret,
+		AccessJWTTTLSeconds:  time.Duration(accessJWTTTLSeconds) * time.Second,
+		RefreshJWTTTLSeconds: time.Duration(refreshJWTTTLSeconds) * time.Second,
 	}, nil
 }
 

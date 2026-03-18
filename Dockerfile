@@ -8,16 +8,22 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -v -o /usr/local/bin/vault .
 
-FROM alpine:latest
+FROM alpine:3.23.3
 
 WORKDIR /usr/local/bin
 
-RUN apk add --no-cache curl
+RUN apk add --no-cache curl \
+    && addgroup -S vault \
+    && adduser -S vault -G vault
 
 COPY --from=builder /usr/local/bin/vault /usr/local/bin/vault
 
+RUN chown vault:vault /usr/local/bin/vault && chmod 0755 /usr/local/bin/vault
+
+USER vault:vault
+
 EXPOSE 8080
 
-ENTRYPOINT ["vault"]
+ENTRYPOINT ["/usr/local/bin/vault"]
 
 

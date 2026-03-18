@@ -1,9 +1,9 @@
 services:
-  vault:
+  beshence_vault:
     build: .
-    image: vault:latest
+    image: beshence_vault:latest
     ports:
-      - "${PORT:-8080}:8080"
+      - "${HOST_PORT:-8080}:8080"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/ping || exit 1"]

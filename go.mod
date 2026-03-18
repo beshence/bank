@@ -1,6 +1,7 @@
 module vault
 
-go 1.25.8
+go 1.25.0
+toolchain go1.25.8
 
 require github.com/gin-gonic/gin v1.12.0
 

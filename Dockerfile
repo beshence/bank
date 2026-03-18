@@ -22,7 +22,7 @@ RUN chown vault:vault /usr/local/bin/vault && chmod 0755 /usr/local/bin/vault
 
 USER vault:vault
 
-EXPOSE 8080
+EXPOSE 27462
 
 ENTRYPOINT ["/usr/local/bin/vault"]
 

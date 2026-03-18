@@ -12,6 +12,7 @@ import (
 
 var (
 	ErrDatabaseURLRequired = errors.New("DATABASE_URL is required")
+	ErrDatabaseURLInvalid  = errors.New("DATABASE_URL is invalid")
 	ErrJWTSecretRequired   = errors.New("JWT_SECRET is required")
 	ErrInvalidJWTTTL       = errors.New("JWT_TTL_SECONDS must be a positive integer")
 )
@@ -30,9 +31,9 @@ func Load() (Env, error) {
 		_ = godotenv.Load()
 	}
 
-	databaseURL := resolveDatabaseURL(useInternalDB)
-	if databaseURL == "" {
-		return Env{}, ErrDatabaseURLRequired
+	databaseURL, err := resolveDatabaseURL(useInternalDB)
+	if err != nil {
+		return Env{}, err
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
@@ -57,24 +58,24 @@ func Load() (Env, error) {
 	}, nil
 }
 
-func resolveDatabaseURL(useInternalDB bool) string {
+func resolveDatabaseURL(useInternalDB bool) (string, error) {
 	if useInternalDB {
 		if internalDatabaseURL := os.Getenv("INTERNAL_DATABASE_URL"); internalDatabaseURL != "" {
-			return internalDatabaseURL
+			return internalDatabaseURL, nil
 		}
 
-		return internalDatabaseURLDefault
+		return internalDatabaseURLDefault, nil
 	}
 
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
-		return ""
+		return "", ErrDatabaseURLRequired
 	}
 
 	parsedURL, err := url.Parse(databaseURL)
 	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
-		return ""
+		return "", ErrDatabaseURLInvalid
 	}
 
-	return databaseURL
+	return databaseURL, nil
 }

@@ -53,9 +53,15 @@ func VerifyPassword(password string, encodedHash string) (bool, error) {
 	if _, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &memory, &timeCost, &threads); err != nil {
 		return false, errors.New("invalid password hash parameters")
 	}
+	if memory != argonMemory || timeCost != argonTime || threads != argonThreads {
+		return false, errors.New("incompatible password hash parameters")
+	}
 
 	salt, err := base64.RawStdEncoding.DecodeString(parts[4])
 	if err != nil {
+		return false, errors.New("invalid password hash salt")
+	}
+	if len(salt) != saltLen {
 		return false, errors.New("invalid password hash salt")
 	}
 
@@ -63,7 +69,10 @@ func VerifyPassword(password string, encodedHash string) (bool, error) {
 	if err != nil {
 		return false, errors.New("invalid password hash data")
 	}
+	if len(decodedHash) != int(argonKeyLen) {
+		return false, errors.New("invalid password hash data")
+	}
 
-	calculatedHash := argon2.IDKey([]byte(password), salt, timeCost, memory, threads, uint32(len(decodedHash)))
+	calculatedHash := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	return subtle.ConstantTimeCompare(decodedHash, calculatedHash) == 1, nil
 }

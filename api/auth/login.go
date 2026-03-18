@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 
 	"vault/internal/app"
@@ -35,7 +36,7 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		var user models.User
 		if err := deps.DB.Where("login = ?", request.Login).First(&user).Error; err != nil {
-			if err == gorm.ErrRecordNotFound {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "invalid credentials",
 				})

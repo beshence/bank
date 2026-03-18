@@ -46,6 +46,6 @@ func main() {
 
 	err = router.Run(":27462")
 	if err != nil {
-		return
+		log.Fatal(err)
 	}
 }

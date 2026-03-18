@@ -11,8 +11,8 @@ import (
 var repositoryNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 var (
-	ErrInvalidRepositoryName = errors.New("repository name must contain only english letters, numbers, '_' or '-' characters")
-	ErrRepositoryOwnerIsNil  = errors.New("repository owner is required")
+	ErrInvalidRepositoryName   = errors.New("repository name must contain only English letters, numbers, '_' or '-' characters")
+	ErrRepositoryOwnerRequired = errors.New("repository owner is required")
 )
 
 type Repository struct {
@@ -33,7 +33,7 @@ func (r *Repository) Validate() error {
 	}
 
 	if r.Owner == "" {
-		return ErrRepositoryOwnerIsNil
+		return ErrRepositoryOwnerRequired
 	}
 
 	return nil

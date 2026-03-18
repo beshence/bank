@@ -56,7 +56,7 @@ func CreateRepoV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if err := deps.DB.Create(&repository).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				c.JSON(http.StatusConflict, gin.H{
-					"message": "repository name is already taken",
+					"message": "you already have a repository with this name",
 				})
 				return
 			}

@@ -1,0 +1,29 @@
+services:
+  beshence_vault:
+    environment:
+      USE_INTERNAL_DB: "true"
+      DATABASE_URL: "postgres://vault:vault@postgres:5432/vault?sslmode=disable"
+      JWT_SECRET: ${JWT_SECRET:-local_dev_secret_change_me}
+      JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-3600}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: vault
+      POSTGRES_USER: vault
+      POSTGRES_PASSWORD: vault
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vault -d vault"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+

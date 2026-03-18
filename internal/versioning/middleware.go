@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func RouteByVersion(endpoint string) gin.HandlerFunc {
+func RouteByVersion(handlersByVersion map[string]EndpointHandlers, endpoint string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		version := c.GetHeader(HeaderAPIVersion)
 		if version == "" {

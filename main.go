@@ -1,6 +1,7 @@
 package main
 
 import (
+	"net/http"
 	"vault/misc/versioning"
 
 	"github.com/gin-gonic/gin"
@@ -12,11 +13,11 @@ func main() {
 	api := router.Group("/api")
 
 	// ping
-	api.GET(versioning.EndpointPing, versioning.RouteByVersion(versioning.EndpointPing))
+	versioning.RegisterVersionedRoute(api, http.MethodGet, versioning.EndpointPing)
 
 	// auth
-	api.POST(versioning.EndpointRegister, versioning.RouteByVersion(versioning.EndpointRegister))
-	api.POST(versioning.EndpointLogin, versioning.RouteByVersion(versioning.EndpointLogin))
+	versioning.RegisterVersionedRoute(api, http.MethodPost, versioning.EndpointRegister)
+	versioning.RegisterVersionedRoute(api, http.MethodPost, versioning.EndpointLogin)
 
 	err := router.Run(":27462")
 	if err != nil {

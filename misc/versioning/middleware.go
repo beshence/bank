@@ -14,7 +14,7 @@ func RouteByVersion(endpoint string) gin.HandlerFunc {
 			version = DefaultAPIVersion
 		}
 
-		handlers, ok := HandlersByVersion[version]
+		handlers, ok := handlersByVersion[version]
 		if !ok {
 			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
 				"message": fmt.Sprintf("unsupported API version: %s", version),

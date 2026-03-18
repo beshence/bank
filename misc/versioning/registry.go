@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type EndpointHandlers map[string]gin.HandlerFunc
+type endpointHandlers map[string]gin.HandlerFunc
 
-var HandlersByVersion = map[string]EndpointHandlers{
+var handlersByVersion = map[string]endpointHandlers{
 	VersionV1: {
 		EndpointPing:     misc.PingV1,
 		EndpointRegister: auth.RegisterV1,

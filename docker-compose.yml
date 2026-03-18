@@ -3,10 +3,10 @@ services:
     build: .
     image: beshence_vault:latest
     ports:
-      - "${HOST_PORT:-8080}:8080"
+      - "${HOST_PORT:-27462}:27462"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/v1/ping || exit 1"]
+      test: ["CMD-SHELL", "curl -f http://localhost:27462/api/v1/ping || exit 1"]
       interval: 1m
       timeout: 5s
       retries: 5

@@ -15,7 +15,7 @@ func New(databaseURL string) (*gorm.DB, error) {
 }
 
 func Migrate(db *gorm.DB) error {
-	if err := db.AutoMigrate(&models.User{}, &models.Repository{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Session{}, &models.Repository{}); err != nil {
 		return err
 	}
 

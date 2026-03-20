@@ -25,7 +25,7 @@ func CreateRepoV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, _, ok := middleware.GetCurrentUser(c)
+		userID, ok := middleware.GetCurrentUser(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -82,7 +82,7 @@ func ReposV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, _, ok := middleware.GetCurrentUser(c)
+		userID, ok := middleware.GetCurrentUser(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",

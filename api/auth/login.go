@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"vault/internal/app"
 	"vault/internal/database/models"
@@ -64,7 +65,8 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		tokens, err := issueTokenPair(deps, user)
+		sessionName := strings.TrimSpace(c.GetHeader("User-Agent"))
+		tokens, err := issueTokenPairForNewSession(deps, user, sessionName)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to generate tokens",

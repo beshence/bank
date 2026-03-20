@@ -12,6 +12,13 @@ type JWTManager struct {
 	typeID TokenType
 }
 
+type AuthClaims struct {
+	SessionID     string
+	AccountID     string
+	AccessTokenID string
+	TokenType     TokenType
+}
+
 type TokenType string
 
 const (
@@ -27,16 +34,17 @@ func NewJWTManager(secret string, ttl time.Duration, typeID TokenType) *JWTManag
 	}
 }
 
-func (m *JWTManager) GenerateToken(userID string, login string) (string, int64, error) {
+func (m *JWTManager) GenerateToken(sessionID string, accountID string, accessTokenID string) (string, int64, error) {
 	now := time.Now().UTC()
 	expiresAt := now.Add(m.ttl)
 
 	claims := jwt.MapClaims{
-		"sub":   userID,
-		"login": login,
-		"typ":   string(m.typeID),
-		"iat":   now.Unix(),
-		"exp":   expiresAt.Unix(),
+		"sub":  sessionID,
+		"aid":  accountID,
+		"atid": accessTokenID,
+		"typ":  string(m.typeID),
+		"iat":  now.Unix(),
+		"exp":  expiresAt.Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -77,4 +85,29 @@ func TokenTypeFromClaims(claims jwt.MapClaims) (TokenType, bool) {
 	}
 
 	return tokenType, true
+}
+
+func AuthClaimsFromToken(claims jwt.MapClaims) (AuthClaims, bool) {
+	tokenType, ok := TokenTypeFromClaims(claims)
+	if !ok {
+		return AuthClaims{}, false
+	}
+
+	sessionID, sessionIDOk := claims["sub"].(string)
+	accountID, accountIDOk := claims["aid"].(string)
+	accessTokenID, accessTokenIDOk := claims["atid"].(string)
+	if !sessionIDOk || !accountIDOk || !accessTokenIDOk {
+		return AuthClaims{}, false
+	}
+
+	if sessionID == "" || accountID == "" || accessTokenID == "" {
+		return AuthClaims{}, false
+	}
+
+	return AuthClaims{
+		SessionID:     sessionID,
+		AccountID:     accountID,
+		AccessTokenID: accessTokenID,
+		TokenType:     tokenType,
+	}, true
 }

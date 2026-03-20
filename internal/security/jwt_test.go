@@ -8,7 +8,7 @@ import (
 func TestGenerateToken(t *testing.T) {
 	manager := NewJWTManager("test-secret", 5*time.Minute, TokenTypeAccess)
 
-	token, expiresAt, err := manager.GenerateToken("user-id", "user-login")
+	token, expiresAt, err := manager.GenerateToken("session-id", "user-id", "access-token-id")
 	if err != nil {
 		t.Fatalf("GenerateToken() error = %v", err)
 	}
@@ -34,18 +34,27 @@ func TestGenerateToken(t *testing.T) {
 	if tokenType != TokenTypeAccess {
 		t.Fatalf("TokenTypeFromClaims() = %s, expected %s", tokenType, TokenTypeAccess)
 	}
+
+	authClaims, ok := AuthClaimsFromToken(claims)
+	if !ok {
+		t.Fatal("AuthClaimsFromToken() expected claims")
+	}
+
+	if authClaims.SessionID != "session-id" || authClaims.AccountID != "user-id" || authClaims.AccessTokenID != "access-token-id" {
+		t.Fatalf("AuthClaimsFromToken() unexpected claims = %+v", authClaims)
+	}
 }
 
 func TestTokenTypeFromClaims(t *testing.T) {
 	accessManager := NewJWTManager("test-secret", 5*time.Minute, TokenTypeAccess)
 	refreshManager := NewJWTManager("test-secret", 24*time.Hour, TokenTypeRefresh)
 
-	accessToken, _, err := accessManager.GenerateToken("user-id", "user-login")
+	accessToken, _, err := accessManager.GenerateToken("session-id", "user-id", "access-token-id")
 	if err != nil {
 		t.Fatalf("GenerateToken(access) error = %v", err)
 	}
 
-	refreshToken, _, err := refreshManager.GenerateToken("user-id", "user-login")
+	refreshToken, _, err := refreshManager.GenerateToken("session-id", "user-id", "access-token-id")
 	if err != nil {
 		t.Fatalf("GenerateToken(refresh) error = %v", err)
 	}

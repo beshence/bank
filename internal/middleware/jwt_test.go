@@ -17,7 +17,7 @@ func TestRequireJWT_AllowsExpectedTokenType(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 
 	manager := security.NewJWTManager("test-secret", time.Hour, security.TokenTypeAccess)
-	token, _, err := manager.GenerateToken("session-id", "user-id", "access-token-id")
+	token, _, err := manager.GenerateToken("session-id", "user-id", "refresh-token-id")
 	if err != nil {
 		t.Fatalf("GenerateToken() error = %v", err)
 	}
@@ -43,7 +43,7 @@ func TestRequireJWT_RejectsUnexpectedTokenType(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 
 	refreshManager := security.NewJWTManager("test-secret", 24*time.Hour, security.TokenTypeRefresh)
-	refreshToken, _, err := refreshManager.GenerateToken("session-id", "user-id", "access-token-id")
+	refreshToken, _, err := refreshManager.GenerateToken("session-id", "user-id", "refresh-token-id")
 	if err != nil {
 		t.Fatalf("GenerateToken() error = %v", err)
 	}

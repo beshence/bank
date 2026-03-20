@@ -43,7 +43,14 @@ func RequireJWT(jwtManager *security.JWTManager, expectedTokenType security.Toke
 		}
 
 		authClaims, claimsOk := security.AuthClaimsFromToken(claims)
-		if !claimsOk || authClaims.TokenType != expectedTokenType {
+		if !claimsOk {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"message": "invalid token claims",
+			})
+			return
+		}
+
+		if authClaims.TokenType != expectedTokenType {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "invalid token type",
 			})

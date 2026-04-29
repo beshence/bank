@@ -49,6 +49,8 @@ func main() {
 	// repositories
 	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointRepo, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
 	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointRepo, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointRepoEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointRepoEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
 
 	err = router.Run(":27462")
 	if err != nil {

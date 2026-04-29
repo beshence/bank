@@ -17,18 +17,19 @@ var (
 )
 
 type Repository struct {
-	ID        string    `gorm:"type:char(36);primaryKey" json:"id"`
-	Name      string    `gorm:"size:128;not null;uniqueIndex:idx_owner_name" json:"name"`
-	OwnerID   string    `gorm:"column:owner_id;type:char(36);not null;index;uniqueIndex:idx_owner_name" json:"owner_id"`
-	LastEvent *string   `gorm:"column:last_event_id;type:char(36);index" json:"last_event,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID          uuid.UUID  `gorm:"type:char(36);primaryKey" json:"id"`
+	Name        string     `gorm:"size:128;not null;uniqueIndex:idx_owner_name" json:"name"`
+	OwnerID     uuid.UUID  `gorm:"column:owner_id;type:char(36);not null;index;uniqueIndex:idx_owner_name" json:"owner_id"`
+	LastEventID *uuid.UUID `gorm:"column:last_event_id;type:char(36);index" json:"last_event_id,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
 
-	Owner User `gorm:"foreignKey:OwnerID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	LastEvent *Event `gorm:"foreignKey:LastEventID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Owner     User   `gorm:"foreignKey:OwnerID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func (r *Repository) BeforeCreate(_ *gorm.DB) error {
-	if r.ID == "" {
-		r.ID = uuid.NewString()
+	if r.ID == uuid.Nil {
+		r.ID = uuid.New()
 	}
 
 	return r.Validate()
@@ -39,7 +40,7 @@ func (r *Repository) Validate() error {
 		return ErrInvalidRepositoryName
 	}
 
-	if r.OwnerID == "" {
+	if r.OwnerID == uuid.Nil {
 		return ErrRepositoryOwnerRequired
 	}
 

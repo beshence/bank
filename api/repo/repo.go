@@ -9,6 +9,7 @@ import (
 	"vault/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -33,6 +34,14 @@ func CreateRepoV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
+		ownerID, err := uuid.Parse(userID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "unauthorized",
+			})
+			return
+		}
+
 		var request createRepositoryRequest
 		if err := c.ShouldBindJSON(&request); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -43,7 +52,7 @@ func CreateRepoV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		repository := models.Repository{
 			Name:    request.Name,
-			OwnerID: userID,
+			OwnerID: ownerID,
 		}
 
 		if err := repository.Validate(); err != nil {
@@ -90,8 +99,16 @@ func ReposV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
+		ownerID, err := uuid.Parse(userID)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "unauthorized",
+			})
+			return
+		}
+
 		repositories := make([]models.Repository, 0)
-		if err := deps.DB.Where("owner_id = ?", userID).Order("created_at desc").Find(&repositories).Error; err != nil {
+		if err := deps.DB.Where("owner_id = ?", ownerID).Order("created_at desc").Find(&repositories).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to load repositories",
 			})

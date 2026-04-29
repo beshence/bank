@@ -8,21 +8,21 @@ import (
 )
 
 type Event struct {
-	ID           string    `gorm:"type:char(36);primaryKey" json:"id"`
-	ParentID     *string   `gorm:"column:parent_id;type:char(36);index:idx_events_repository_parent,unique" json:"parent_id,omitempty"`
-	RepositoryID string    `gorm:"column:repository_id;type:char(36);not null;index;index:idx_events_repository_parent,unique" json:"repository_id"`
-	SessionID    string    `gorm:"column:session_id;type:char(36);not null;index" json:"session_id"`
-	Content      string    `gorm:"type:text;not null" json:"content"`
-	CreatedAt    time.Time `json:"created_at"`
+	EventID      uuid.UUID  `gorm:"column:event_id;type:char(36);primaryKey" json:"event_id"`
+	RepositoryID uuid.UUID  `gorm:"column:repository_id;type:char(36);not null;index:idx_events_repository_parent,priority:1" json:"repository_id"`
+	ParentID     *uuid.UUID `gorm:"column:parent_id;type:char(36);index:idx_events_repository_parent,priority:2" json:"parent_id,omitempty"`
+	SessionID    uuid.UUID  `gorm:"column:session_id;type:char(36);not null;index" json:"session_id"`
+	Payload      string     `gorm:"type:text;not null" json:"payload"`
+	CreatedAt    time.Time  `json:"created_at"`
 
-	Parent     *Event     `gorm:"foreignKey:ParentID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Parent     *Event     `gorm:"foreignKey:ParentID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
 	Repository Repository `gorm:"foreignKey:RepositoryID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	Session    Session    `gorm:"foreignKey:SessionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func (e *Event) BeforeCreate(_ *gorm.DB) error {
-	if e.ID == "" {
-		e.ID = uuid.NewString()
+	if e.EventID == uuid.Nil {
+		e.EventID = uuid.New()
 	}
 
 	return nil

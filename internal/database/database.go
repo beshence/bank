@@ -11,7 +11,8 @@ import (
 
 func New(databaseURL string) (*gorm.DB, error) {
 	return gorm.Open(postgres.Open(databaseURL), &gorm.Config{
-		TranslateError: true,
+		TranslateError:                           true,
+		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 }
 
@@ -19,6 +20,11 @@ func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(
 		&models.User{},
 		&models.Session{},
+	); err != nil {
+		return err
+	}
+
+	if err := db.AutoMigrate(
 		&models.Chain{},
 		&models.Event{},
 		&models.File{},

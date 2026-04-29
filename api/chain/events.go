@@ -43,7 +43,14 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		if _, ok := middleware.GetCurrentUser(c); !ok {
+		userID, ok := middleware.GetCurrentUser(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
+			return
+		}
+
+		ownerID, err := uuid.Parse(userID)
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			return
 		}
@@ -110,7 +117,7 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		var chain models.Chain
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", chainID).Take(&chain).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND owner_id = ?", chainID, ownerID).Take(&chain).Error; err != nil {
 			rollback()
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"message": "chain not found"})
@@ -186,7 +193,14 @@ func FetchEventsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		if _, ok := middleware.GetCurrentUser(c); !ok {
+		userID, ok := middleware.GetCurrentUser(c)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
+			return
+		}
+
+		ownerID, err := uuid.Parse(userID)
+		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			return
 		}
@@ -198,7 +212,7 @@ func FetchEventsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		var chain models.Chain
-		if err := deps.DB.Where("id = ?", chainID).Take(&chain).Error; err != nil {
+		if err := deps.DB.Where("id = ? AND owner_id = ?", chainID, ownerID).Take(&chain).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"message": "chain not found"})
 				return
@@ -269,7 +283,7 @@ func parseFetchCursor(request SyncRequest) (*uuid.UUID, error) {
 
 	parsed, err := uuid.Parse(rawCursor)
 	if err != nil {
-		return nil, fmt.Errorf("invalid last_event_id")
+		return nil, fmt.Errorf("invalid cursor")
 	}
 
 	return &parsed, nil
@@ -361,21 +375,6 @@ func eventTableName(db *gorm.DB) (string, error) {
 	}
 
 	return stmt.Schema.Table, nil
-}
-func loadNextEvent(db *gorm.DB, chainID uuid.UUID, parentID *uuid.UUID) (*models.Event, error) {
-	query := db.Where("chain_id = ?", chainID)
-	if parentID == nil {
-		query = query.Where("parent_id IS NULL")
-	} else {
-		query = query.Where("parent_id = ?", *parentID)
-	}
-
-	var event models.Event
-	if err := query.Take(&event).Error; err != nil {
-		return nil, err
-	}
-
-	return &event, nil
 }
 
 func sameEventID(a, b *uuid.UUID) bool {

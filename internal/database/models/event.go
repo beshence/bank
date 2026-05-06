@@ -16,6 +16,7 @@ type Event struct {
 	CreatedAt time.Time  `json:"created_at"`
 
 	Parent  *Event  `gorm:"foreignKey:ParentID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
+	Files   []File  `gorm:"foreignKey:EventID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	Chain   Chain   `gorm:"foreignKey:ChainID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	Session Session `gorm:"foreignKey:SessionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }

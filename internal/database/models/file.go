@@ -14,7 +14,6 @@ type File struct {
 	BlobID    uuid.UUID `gorm:"column:blob_id;type:char(36);not null;index" json:"blob_id"`
 	CreatedAt time.Time `json:"created_at"`
 
-	Event   Event   `gorm:"foreignKey:EventID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 	Session Session `gorm:"foreignKey:SessionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 

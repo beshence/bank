@@ -1,13 +1,13 @@
-package vault
+package bank
 
 import (
 	"errors"
 	"net/http"
 	"time"
 
-	"vault/internal/app"
-	"vault/internal/database/models"
-	"vault/internal/middleware"
+	"bank/internal/app"
+	"bank/internal/database/models"
+	"bank/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -86,14 +86,14 @@ func CreateVaultV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		vault := models.Vault{Name: request.Name, AccountID: accountUUID}
 		if err := deps.DB.Create(&vault).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
-				c.JSON(http.StatusConflict, gin.H{"message": "you already have a vault with this name"})
+				c.JSON(http.StatusConflict, gin.H{"message": "you already have a bank with this name"})
 				return
 			}
 
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create vault"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to create bank"})
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"vault": vaultResponse{ID: vault.ID.String(), Name: vault.Name, CreatedAt: vault.CreatedAt.Format(time.RFC3339)}})
+		c.JSON(http.StatusCreated, gin.H{"bank": vaultResponse{ID: vault.ID.String(), Name: vault.Name, CreatedAt: vault.CreatedAt.Format(time.RFC3339)}})
 	}
 }

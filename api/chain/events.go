@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"vault/internal/app"
-	"vault/internal/database/models"
-	"vault/internal/middleware"
+	"bank/internal/app"
+	"bank/internal/database/models"
+	"bank/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -57,7 +57,7 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		vaultID, err := uuid.Parse(c.Param("vaultId"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid vault id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid bank id"})
 			return
 		}
 
@@ -110,11 +110,11 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if _, err := loadVaultForAccount(tx, vaultID, accountUUID); err != nil {
 			rollback()
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"message": "vault not found"})
+				c.JSON(http.StatusNotFound, gin.H{"message": "bank not found"})
 				return
 			}
 
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load vault"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load bank"})
 			return
 		}
 
@@ -233,7 +233,7 @@ func FetchEventsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		vaultID, err := uuid.Parse(c.Param("vaultId"))
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid vault id"})
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid bank id"})
 			return
 		}
 
@@ -245,11 +245,11 @@ func FetchEventsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountUUID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.JSON(http.StatusNotFound, gin.H{"message": "vault not found"})
+				c.JSON(http.StatusNotFound, gin.H{"message": "bank not found"})
 				return
 			}
 
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load vault"})
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load bank"})
 			return
 		}
 

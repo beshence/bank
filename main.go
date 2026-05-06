@@ -1,14 +1,14 @@
 package main
 
 import (
+	"bank/internal/app"
+	"bank/internal/auth"
+	"bank/internal/config"
+	"bank/internal/database"
+	"bank/internal/middleware"
+	"bank/internal/versioning"
 	"log"
 	"net/http"
-	"vault/internal/app"
-	"vault/internal/auth"
-	"vault/internal/config"
-	"vault/internal/database"
-	"vault/internal/middleware"
-	"vault/internal/versioning"
 
 	"github.com/gin-gonic/gin"
 )

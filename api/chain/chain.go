@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"time"
 
-	"vault/internal/app"
-	"vault/internal/database/models"
-	"vault/internal/middleware"
+	"bank/internal/app"
+	"bank/internal/database/models"
+	"bank/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -52,7 +52,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		vaultID, err := uuid.Parse(c.Param("vaultId"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "invalid vault id",
+				"message": "invalid bank id",
 			})
 			return
 		}
@@ -60,13 +60,13 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if _, err := loadVaultForAccount(deps.DB, vaultID, vaultOwnerID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{
-					"message": "vault not found",
+					"message": "bank not found",
 				})
 				return
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to load vault",
+				"message": "failed to load bank",
 			})
 			return
 		}
@@ -94,7 +94,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if err := deps.DB.Create(&chain).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				c.JSON(http.StatusConflict, gin.H{
-					"message": "you already have a chain with this name in this vault",
+					"message": "you already have a chain with this name in this bank",
 				})
 				return
 			}
@@ -139,7 +139,7 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		vaultID, err := uuid.Parse(c.Param("vaultId"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "invalid vault id",
+				"message": "invalid bank id",
 			})
 			return
 		}
@@ -147,13 +147,13 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if _, err := loadVaultForAccount(deps.DB, vaultID, vaultOwnerID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{
-					"message": "vault not found",
+					"message": "bank not found",
 				})
 				return
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to load vault",
+				"message": "failed to load bank",
 			})
 			return
 		}

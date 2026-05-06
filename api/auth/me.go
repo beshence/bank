@@ -1,11 +1,11 @@
 package auth
 
 import (
+	"bank/internal/app"
+	"bank/internal/database/models"
+	"bank/internal/middleware"
 	"errors"
 	"net/http"
-	"vault/internal/app"
-	"vault/internal/database/models"
-	"vault/internal/middleware"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"

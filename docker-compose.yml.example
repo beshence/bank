@@ -1,9 +1,9 @@
 # Basic configuration without database.
 # For the bundled PostgreSQL setup, see `docker-compose.with-db.yml.example`.
 services:
-  beshence_vault:
+  beshence_bank:
     build: .
-    image: beshence_vault:latest
+    image: beshence_bank:latest
     extra_hosts:
       - "host.docker.internal:host-gateway"
     environment:

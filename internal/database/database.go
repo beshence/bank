@@ -6,7 +6,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"vault/internal/database/models"
+	"bank/internal/database/models"
 )
 
 func New(databaseURL string) (*gorm.DB, error) {

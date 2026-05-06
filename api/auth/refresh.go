@@ -21,7 +21,7 @@ func RefreshV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -38,7 +38,7 @@ func RefreshV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		var session models.Session
-		if err := deps.DB.Where("id = ? AND account_id = ?", sessionID, userID).First(&session).Error; err != nil {
+		if err := deps.DB.Where("id = ? AND account_id = ?", sessionID, accountID).First(&session).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "invalid session",
@@ -59,8 +59,8 @@ func RefreshV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		var user models.User
-		if err := deps.DB.Select("id", "login").Where("id = ?", userID).First(&user).Error; err != nil {
+		var account models.Account
+		if err := deps.DB.Select("id", "login").Where("id = ?", accountID).First(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "unauthorized",
@@ -69,12 +69,12 @@ func RefreshV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to load user",
+				"message": "failed to load account",
 			})
 			return
 		}
 
-		tokens, err := auth.IssueTokenPairForExistingSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, user, session, tokenRefreshTokenID)
+		tokens, err := auth.IssueTokenPairForExistingSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, account, session, tokenRefreshTokenID)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
@@ -90,8 +90,8 @@ func RefreshV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"id":                 user.ID,
-			"login":              user.Login,
+			"id":                 account.ID,
+			"login":              account.Login,
 			"token_type":         "Bearer",
 			"access_token":       tokens.AccessToken,
 			"access_expires_at":  tokens.AccessExpiresAt,

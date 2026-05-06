@@ -13,18 +13,18 @@ var chainNamePattern = regexp.MustCompile(`^[A-Za-z0-9_-]+$`)
 
 var (
 	ErrInvalidChainName   = errors.New("chain name must contain only English letters, numbers, '_' or '-' characters")
-	ErrChainOwnerRequired = errors.New("chain owner is required")
+	ErrChainVaultRequired = errors.New("chain vault is required")
 )
 
 type Chain struct {
 	ID          uuid.UUID  `gorm:"type:char(36);primaryKey" json:"id"`
-	Name        string     `gorm:"size:128;not null;uniqueIndex:idx_owner_name" json:"name"`
-	OwnerID     uuid.UUID  `gorm:"column:owner_id;type:char(36);not null;index;uniqueIndex:idx_owner_name" json:"owner_id"`
+	Name        string     `gorm:"size:128;not null;uniqueIndex:idx_vault_name" json:"name"`
+	VaultID     uuid.UUID  `gorm:"column:vault_id;type:char(36);not null;index;uniqueIndex:idx_vault_name" json:"vault_id"`
 	LastEventID *uuid.UUID `gorm:"column:last_event_id;type:char(36);index" json:"last_event_id,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 
 	LastEvent *Event `gorm:"foreignKey:LastEventID;references:EventID;constraint:OnUpdate:CASCADE,OnDelete:SET NULL" json:"-"`
-	Owner     User   `gorm:"foreignKey:OwnerID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Vault     Vault  `gorm:"foreignKey:VaultID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func (c *Chain) TableName() string {
@@ -44,8 +44,8 @@ func (c *Chain) Validate() error {
 		return ErrInvalidChainName
 	}
 
-	if c.OwnerID == uuid.Nil {
-		return ErrChainOwnerRequired
+	if c.VaultID == uuid.Nil {
+		return ErrChainVaultRequired
 	}
 
 	return nil

@@ -42,12 +42,12 @@ func RegisterV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		user := models.User{
+		account := models.Account{
 			Login:        request.Login,
 			PasswordHash: passwordHash,
 		}
 
-		if err := deps.DB.Create(&user).Error; err != nil {
+		if err := deps.DB.Create(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				c.JSON(http.StatusConflict, gin.H{
 					"message": "login is already taken",
@@ -56,12 +56,12 @@ func RegisterV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to create user",
+				"message": "failed to create account",
 			})
 			return
 		}
 
-		tokens, err := auth.IssueTokenPairForNewSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, user, c.GetHeader("User-Agent"))
+		tokens, err := auth.IssueTokenPairForNewSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, account, c.GetHeader("User-Agent"))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to generate tokens",
@@ -70,8 +70,8 @@ func RegisterV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"id":                 user.ID,
-			"login":              user.Login,
+			"id":                 account.ID,
+			"login":              account.Login,
 			"token_type":         "Bearer",
 			"access_token":       tokens.AccessToken,
 			"access_expires_at":  tokens.AccessExpiresAt,

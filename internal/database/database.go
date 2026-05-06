@@ -18,13 +18,9 @@ func New(databaseURL string) (*gorm.DB, error) {
 
 func Migrate(db *gorm.DB) error {
 	if err := db.AutoMigrate(
-		&models.User{},
+		&models.Account{},
 		&models.Session{},
-	); err != nil {
-		return err
-	}
-
-	if err := db.AutoMigrate(
+		&models.Vault{},
 		&models.Chain{},
 		&models.Event{},
 		&models.File{},

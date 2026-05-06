@@ -17,6 +17,12 @@ type createChainRequest struct {
 	Name string `json:"name" binding:"required,min=1,max=128"`
 }
 
+type chainResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	CreatedAt string `json:"created_at"`
+}
+
 func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if deps == nil || deps.DB == nil {
@@ -26,7 +32,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -34,10 +40,32 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		ownerID, err := uuid.Parse(userID)
+		vaultOwnerID, err := uuid.Parse(accountID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
+			})
+			return
+		}
+
+		vaultID, err := uuid.Parse(c.Param("vaultId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "invalid vault id",
+			})
+			return
+		}
+
+		if _, err := loadVaultForAccount(deps.DB, vaultID, vaultOwnerID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "vault not found",
+				})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "failed to load vault",
 			})
 			return
 		}
@@ -52,7 +80,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		chain := models.Chain{
 			Name:    request.Name,
-			OwnerID: ownerID,
+			VaultID: vaultID,
 		}
 
 		if err := chain.Validate(); err != nil {
@@ -65,7 +93,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		if err := deps.DB.Create(&chain).Error; err != nil {
 			if errors.Is(err, gorm.ErrDuplicatedKey) {
 				c.JSON(http.StatusConflict, gin.H{
-					"message": "you already have a chain with this name",
+					"message": "you already have a chain with this name in this vault",
 				})
 				return
 			}
@@ -77,7 +105,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"chain": chain.Name,
+			"chain": chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format("2006-01-02T15:04:05Z07:00")},
 		})
 	}
 }
@@ -91,7 +119,7 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -99,7 +127,7 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		ownerID, err := uuid.Parse(userID)
+		vaultOwnerID, err := uuid.Parse(accountID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -107,21 +135,52 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
+		vaultID, err := uuid.Parse(c.Param("vaultId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "invalid vault id",
+			})
+			return
+		}
+
+		if _, err := loadVaultForAccount(deps.DB, vaultID, vaultOwnerID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{
+					"message": "vault not found",
+				})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"message": "failed to load vault",
+			})
+			return
+		}
+
 		chains := make([]models.Chain, 0)
-		if err := deps.DB.Where("owner_id = ?", ownerID).Order("created_at desc").Find(&chains).Error; err != nil {
+		if err := deps.DB.Where("vault_id = ?", vaultID).Order("created_at desc").Find(&chains).Error; err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to load chains",
 			})
 			return
 		}
 
-		names := make([]string, len(chains))
+		items := make([]chainResponse, len(chains))
 		for i, chain := range chains {
-			names[i] = chain.Name
+			items[i] = chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format("2006-01-02T15:04:05Z07:00")}
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"chains": names,
+			"chains": items,
 		})
 	}
+}
+
+func loadVaultForAccount(db *gorm.DB, vaultID uuid.UUID, accountID uuid.UUID) (models.Vault, error) {
+	var vault models.Vault
+	if err := db.Where("id = ? AND account_id = ?", vaultID, accountID).Take(&vault).Error; err != nil {
+		return models.Vault{}, err
+	}
+
+	return vault, nil
 }

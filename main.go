@@ -46,11 +46,15 @@ func main() {
 	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointRefresh, middleware.RequireJWT(refreshJWTManager, auth.TokenTypeRefresh))
 	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointMe, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
 
+	// vaults
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointVaults, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointVaults, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+
 	// chains
-	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointChain, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
-	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointChain, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
-	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointChainEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
-	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointChainEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointVaultChains, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointVaultChains, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodGet, versioning.EndpointVaultChainEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
+	versioning.RegisterVersionedRoute(api, handlersByVersion, http.MethodPost, versioning.EndpointVaultChainEvents, middleware.RequireJWT(accessJWTManager, auth.TokenTypeAccess))
 
 	err = router.Run(":27462")
 	if err != nil {

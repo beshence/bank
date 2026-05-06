@@ -7,11 +7,12 @@ const (
 )
 
 const (
-	EndpointPing        = "/ping"
-	EndpointRegister    = "/auth/register"
-	EndpointLogin       = "/auth/login"
-	EndpointRefresh     = "/auth/refresh"
-	EndpointMe          = "/auth/me"
-	EndpointChain       = "/chains"
-	EndpointChainEvents = "/chains/:id/events"
+	EndpointPing             = "/ping"
+	EndpointRegister         = "/auth/register"
+	EndpointLogin            = "/auth/login"
+	EndpointRefresh          = "/auth/refresh"
+	EndpointMe               = "/auth/me"
+	EndpointVaults           = "/vaults"
+	EndpointVaultChains      = "/vaults/:vaultId/chains"
+	EndpointVaultChainEvents = "/vaults/:vaultId/chains/:chainId/events"
 )

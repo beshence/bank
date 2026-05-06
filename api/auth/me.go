@@ -20,7 +20,7 @@ func MeV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "unauthorized",
@@ -28,8 +28,8 @@ func MeV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		var user models.User
-		if err := deps.DB.Select("id", "login").Where("id = ?", userID).First(&user).Error; err != nil {
+		var account models.Account
+		if err := deps.DB.Select("id", "login").Where("id = ?", accountID).First(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "unauthorized",
@@ -38,14 +38,14 @@ func MeV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to load user",
+				"message": "failed to load account",
 			})
 			return
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"id":    user.ID,
-			"login": user.Login,
+			"id":    account.ID,
+			"login": account.Login,
 		})
 	}
 }

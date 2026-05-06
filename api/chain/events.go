@@ -43,15 +43,21 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			return
 		}
 
-		ownerID, err := uuid.Parse(userID)
+		accountUUID, err := uuid.Parse(accountID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
+			return
+		}
+
+		vaultID, err := uuid.Parse(c.Param("vaultId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid vault id"})
 			return
 		}
 
@@ -67,7 +73,7 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		chainID, err := uuid.Parse(c.Param("id"))
+		chainID, err := uuid.Parse(c.Param("chainId"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid chain id"})
 			return
@@ -116,8 +122,19 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
+		if _, err := loadVaultForAccount(tx, vaultID, accountUUID); err != nil {
+			rollback()
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"message": "vault not found"})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load vault"})
+			return
+		}
+
 		var chain models.Chain
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND owner_id = ?", chainID, ownerID).Take(&chain).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ? AND vault_id = ?", chainID, vaultID).Take(&chain).Error; err != nil {
 			rollback()
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"message": "chain not found"})
@@ -193,26 +210,42 @@ func FetchEventsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		userID, ok := middleware.GetCurrentUser(c)
+		accountID, ok := middleware.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			return
 		}
 
-		ownerID, err := uuid.Parse(userID)
+		accountUUID, err := uuid.Parse(accountID)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{"message": "unauthorized"})
 			return
 		}
 
-		chainID, err := uuid.Parse(c.Param("id"))
+		vaultID, err := uuid.Parse(c.Param("vaultId"))
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid vault id"})
+			return
+		}
+
+		chainID, err := uuid.Parse(c.Param("chainId"))
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"message": "invalid chain id"})
 			return
 		}
 
+		if _, err := loadVaultForAccount(deps.DB, vaultID, accountUUID); err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				c.JSON(http.StatusNotFound, gin.H{"message": "vault not found"})
+				return
+			}
+
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to load vault"})
+			return
+		}
+
 		var chain models.Chain
-		if err := deps.DB.Where("id = ? AND owner_id = ?", chainID, ownerID).Take(&chain).Error; err != nil {
+		if err := deps.DB.Where("id = ? AND vault_id = ?", chainID, vaultID).Take(&chain).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"message": "chain not found"})
 				return

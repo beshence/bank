@@ -34,8 +34,8 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		var user models.User
-		if err := deps.DB.Where("login = ?", request.Login).First(&user).Error; err != nil {
+		var account models.Account
+		if err := deps.DB.Where("login = ?", request.Login).First(&account).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.JSON(http.StatusUnauthorized, gin.H{
 					"message": "invalid credentials",
@@ -44,12 +44,12 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			}
 
 			c.JSON(http.StatusInternalServerError, gin.H{
-				"message": "failed to load user",
+				"message": "failed to load account",
 			})
 			return
 		}
 
-		ok, err := auth.VerifyPassword(request.Password, user.PasswordHash)
+		ok, err := auth.VerifyPassword(request.Password, account.PasswordHash)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to verify password",
@@ -64,7 +64,7 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		tokens, err := auth.IssueTokenPairForNewSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, user, c.GetHeader("User-Agent"))
+		tokens, err := auth.IssueTokenPairForNewSession(deps.DB, deps.AccessJWTManager, deps.RefreshJWTManager, account, c.GetHeader("User-Agent"))
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "failed to generate tokens",
@@ -73,8 +73,8 @@ func LoginV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"id":                 user.ID,
-			"login":              user.Login,
+			"id":                 account.ID,
+			"login":              account.Login,
 			"token_type":         "Bearer",
 			"access_token":       tokens.AccessToken,
 			"access_expires_at":  tokens.AccessExpiresAt,

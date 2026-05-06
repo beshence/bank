@@ -107,21 +107,6 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			_ = tx.Rollback().Error
 		}
 
-		var existing models.Event
-		if err := tx.Where("event_id = ?", eventID).Take(&existing).Error; err == nil {
-			if err := tx.Commit().Error; err != nil {
-				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to complete transaction"})
-				return
-			}
-
-			c.JSON(http.StatusOK, gin.H{"status": "ok"})
-			return
-		} else if !errors.Is(err, gorm.ErrRecordNotFound) {
-			rollback()
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to check event id"})
-			return
-		}
-
 		if _, err := loadVaultForAccount(tx, vaultID, accountUUID); err != nil {
 			rollback()
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -179,6 +164,30 @@ func AppendEventV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		if result.RowsAffected == 0 {
+			var existing models.Event
+			if err := tx.Where("chain_id = ? AND event_id = ?", chainID, eventID).Take(&existing).Error; err != nil {
+				rollback()
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					c.JSON(http.StatusConflict, conflictResponse{
+						Error:             "conflict",
+						ServerLastEventID: uuidToStringPtr(chain.LastEventID),
+					})
+					return
+				}
+
+				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to check existing event"})
+				return
+			}
+
+			if !sameEventID(existing.ParentID, parentID) || existing.Payload != request.Payload {
+				rollback()
+				c.JSON(http.StatusConflict, conflictResponse{
+					Error:             "conflict",
+					ServerLastEventID: uuidToStringPtr(chain.LastEventID),
+				})
+				return
+			}
+
 			if err := tx.Commit().Error; err != nil {
 				c.JSON(http.StatusInternalServerError, gin.H{"message": "failed to complete transaction"})
 				return

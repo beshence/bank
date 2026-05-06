@@ -1,11 +1,11 @@
 package middleware
 
 import (
+	"bank/internal/auth"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
-	"vault/internal/auth"
 
 	"github.com/gin-gonic/gin"
 )

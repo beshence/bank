@@ -1,9 +1,9 @@
 package middleware
 
 import (
+	"bank/internal/auth"
 	"net/http"
 	"strings"
-	"vault/internal/auth"
 
 	"github.com/gin-gonic/gin"
 )
@@ -41,7 +41,7 @@ func RequireJWT(jwtManager *auth.JWTManager, expectedTokenType auth.TokenType) g
 			return
 		}
 
-		authClaims, claimsOk := auth.AuthClaimsFromToken(claims)
+		authClaims, claimsOk := auth.ClaimsFromToken(claims)
 		if !claimsOk {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"message": "invalid token claims",

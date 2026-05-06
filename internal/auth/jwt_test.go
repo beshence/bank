@@ -35,7 +35,7 @@ func TestGenerateToken(t *testing.T) {
 		t.Fatalf("TokenTypeFromClaims() = %s, expected %s", tokenType, TokenTypeAccess)
 	}
 
-	authClaims, ok := AuthClaimsFromToken(claims)
+	authClaims, ok := ClaimsFromToken(claims)
 	if !ok {
 		t.Fatal("AuthClaimsFromToken() expected claims")
 	}
@@ -81,7 +81,7 @@ func TestTokenTypeFromClaims(t *testing.T) {
 		t.Fatalf("TokenTypeFromClaims(refresh) = %s, %v", tokenType, ok)
 	}
 
-	refreshAuthClaims, ok := AuthClaimsFromToken(refreshClaims)
+	refreshAuthClaims, ok := ClaimsFromToken(refreshClaims)
 	if !ok {
 		t.Fatal("AuthClaimsFromToken(refresh) expected claims")
 	}

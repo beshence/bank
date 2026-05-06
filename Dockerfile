@@ -6,24 +6,24 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 GOOS=linux go build -v -o /usr/local/bin/vault .
+RUN CGO_ENABLED=0 GOOS=linux go build -v -o /usr/local/bin/bank .
 
 FROM alpine:3.23.3
 
 WORKDIR /usr/local/bin
 
 RUN apk add --no-cache curl \
-    && addgroup -S vault \
-    && adduser -S vault -G vault
+    && addgroup -S bank \
+    && adduser -S bank -G bank
 
-COPY --from=builder /usr/local/bin/vault /usr/local/bin/vault
+COPY --from=builder /usr/local/bin/bank /usr/local/bin/bank
 
-RUN chown vault:vault /usr/local/bin/vault && chmod 0755 /usr/local/bin/vault
+RUN chown bank:bank /usr/local/bin/bank && chmod 0755 /usr/local/bin/bank
 
-USER vault:vault
+USER bank:bank
 
 EXPOSE 27462
 
-ENTRYPOINT ["/usr/local/bin/vault"]
+ENTRYPOINT ["/usr/local/bin/bank"]
 
 

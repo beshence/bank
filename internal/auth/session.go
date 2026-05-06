@@ -1,8 +1,8 @@
 package auth
 
 import (
+	"bank/internal/database/models"
 	"strings"
-	"vault/internal/database/models"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

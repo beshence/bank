@@ -1,7 +1,7 @@
 package app
 
 import (
-	"vault/internal/auth"
+	"bank/internal/auth"
 
 	"gorm.io/gorm"
 )

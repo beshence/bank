@@ -1,7 +1,7 @@
 package versioning
 
 const (
-	HeaderAPIVersion  = "X-Vault-API-Version"
+	HeaderAPIVersion  = "X-Beshence-Bank-API-Version"
 	VersionV1dot0     = "v1.0"
 	DefaultAPIVersion = VersionV1dot0
 )

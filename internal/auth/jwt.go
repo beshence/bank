@@ -12,7 +12,7 @@ type JWTManager struct {
 	typeID TokenType
 }
 
-type AuthClaims struct {
+type Claims struct {
 	SessionID      string
 	AccountID      string
 	RefreshTokenID string
@@ -90,20 +90,20 @@ func TokenTypeFromClaims(claims jwt.MapClaims) (TokenType, bool) {
 	return tokenType, true
 }
 
-func AuthClaimsFromToken(claims jwt.MapClaims) (AuthClaims, bool) {
+func ClaimsFromToken(claims jwt.MapClaims) (Claims, bool) {
 	tokenType, ok := TokenTypeFromClaims(claims)
 	if !ok {
-		return AuthClaims{}, false
+		return Claims{}, false
 	}
 
 	sessionID, sessionIDOk := claims["sub"].(string)
 	accountID, accountIDOk := claims["aid"].(string)
 	if !sessionIDOk || !accountIDOk {
-		return AuthClaims{}, false
+		return Claims{}, false
 	}
 
 	if sessionID == "" || accountID == "" {
-		return AuthClaims{}, false
+		return Claims{}, false
 	}
 
 	refreshTokenID := ""
@@ -111,11 +111,11 @@ func AuthClaimsFromToken(claims jwt.MapClaims) (AuthClaims, bool) {
 		var refreshTokenIDOk bool
 		refreshTokenID, refreshTokenIDOk = claims["rtid"].(string)
 		if !refreshTokenIDOk || refreshTokenID == "" {
-			return AuthClaims{}, false
+			return Claims{}, false
 		}
 	}
 
-	return AuthClaims{
+	return Claims{
 		SessionID:      sessionID,
 		AccountID:      accountID,
 		RefreshTokenID: refreshTokenID,

@@ -14,7 +14,7 @@ type Session struct {
 	RefreshTokenID string    `gorm:"column:refresh_token_id;type:char(36);not null" json:"refresh_token_id"`
 	CreatedAt      time.Time `json:"created_at"`
 
-	Account User `gorm:"foreignKey:AccountID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
+	Account Account `gorm:"foreignKey:AccountID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE" json:"-"`
 }
 
 func (s *Session) BeforeCreate(_ *gorm.DB) error {

@@ -5,22 +5,22 @@ import "github.com/gin-gonic/gin"
 const (
 	ContextAuthClaimsKey         = "auth.claims"
 	ContextAuthSessionIDKey      = "auth.session_id"
-	ContextAuthUserIDKey         = "auth.user_id"
+	ContextAuthAccountIDKey      = "auth.account_id"
 	ContextAuthRefreshTokenIDKey = "auth.refresh_token_id"
 )
 
-func GetCurrentUser(c *gin.Context) (string, bool) {
-	userIDValue, userIDExists := c.Get(ContextAuthUserIDKey)
-	if !userIDExists {
+func GetCurrentAccount(c *gin.Context) (string, bool) {
+	accountIDValue, accountIDExists := c.Get(ContextAuthAccountIDKey)
+	if !accountIDExists {
 		return "", false
 	}
 
-	userID, userIDOk := userIDValue.(string)
-	if !userIDOk || userID == "" {
+	accountID, accountIDOk := accountIDValue.(string)
+	if !accountIDOk || accountID == "" {
 		return "", false
 	}
 
-	return userID, true
+	return accountID, true
 }
 
 func GetCurrentSession(c *gin.Context) (string, string, bool) {

@@ -18,8 +18,6 @@ var (
 	ErrInvalidRefreshJWTTTL = errors.New("REFRESH_JWT_TTL_SECONDS must be a positive integer")
 )
 
-const internalDatabaseURLDefault = "postgres://vault:vault@postgres:5432/vault?sslmode=disable"
-
 type Env struct {
 	DatabaseURL          string
 	JWTSecret            string
@@ -28,12 +26,9 @@ type Env struct {
 }
 
 func Load() (Env, error) {
-	useInternalDB := os.Getenv("USE_INTERNAL_DB") == "true"
-	if !useInternalDB {
-		_ = godotenv.Load()
-	}
+	_ = godotenv.Load()
 
-	databaseURL, err := resolveDatabaseURL(useInternalDB)
+	databaseURL, err := resolveDatabaseURL()
 	if err != nil {
 		return Env{}, err
 	}
@@ -74,15 +69,7 @@ func Load() (Env, error) {
 	}, nil
 }
 
-func resolveDatabaseURL(useInternalDB bool) (string, error) {
-	if useInternalDB {
-		if internalDatabaseURL := os.Getenv("INTERNAL_DATABASE_URL"); internalDatabaseURL != "" {
-			return internalDatabaseURL, nil
-		}
-
-		return internalDatabaseURLDefault, nil
-	}
-
+func resolveDatabaseURL() (string, error) {
 	databaseURL := os.Getenv("DATABASE_URL")
 	if databaseURL == "" {
 		return "", ErrDatabaseURLRequired

@@ -3,6 +3,7 @@ package vault
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"vault/internal/app"
 	"vault/internal/database/models"
@@ -50,7 +51,7 @@ func VaultsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		items := make([]vaultResponse, len(vaults))
 		for i, item := range vaults {
-			items[i] = vaultResponse{ID: item.ID.String(), Name: item.Name, CreatedAt: item.CreatedAt.Format("2006-01-02T15:04:05Z07:00")}
+			items[i] = vaultResponse{ID: item.ID.String(), Name: item.Name, CreatedAt: item.CreatedAt.Format(time.RFC3339)}
 		}
 
 		c.JSON(http.StatusOK, gin.H{"vaults": items})
@@ -93,6 +94,6 @@ func CreateVaultV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusCreated, gin.H{"vault": vaultResponse{ID: vault.ID.String(), Name: vault.Name, CreatedAt: vault.CreatedAt.Format("2006-01-02T15:04:05Z07:00")}})
+		c.JSON(http.StatusCreated, gin.H{"vault": vaultResponse{ID: vault.ID.String(), Name: vault.Name, CreatedAt: vault.CreatedAt.Format(time.RFC3339)}})
 	}
 }

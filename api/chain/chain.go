@@ -3,6 +3,7 @@ package chain
 import (
 	"errors"
 	"net/http"
+	"time"
 
 	"vault/internal/app"
 	"vault/internal/database/models"
@@ -105,7 +106,7 @@ func CreateChainV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusCreated, gin.H{
-			"chain": chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format("2006-01-02T15:04:05Z07:00")},
+			"chain": chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format(time.RFC3339)},
 		})
 	}
 }
@@ -167,7 +168,7 @@ func ChainsV1dot0(deps *app.Dependencies) gin.HandlerFunc {
 
 		items := make([]chainResponse, len(chains))
 		for i, chain := range chains {
-			items[i] = chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format("2006-01-02T15:04:05Z07:00")}
+			items[i] = chainResponse{ID: chain.ID.String(), Name: chain.Name, CreatedAt: chain.CreatedAt.Format(time.RFC3339)}
 		}
 
 		c.JSON(http.StatusOK, gin.H{

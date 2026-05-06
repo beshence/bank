@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bank/api/misc"
 	"bank/internal/app"
 	"bank/internal/auth"
 	"bank/internal/config"
@@ -34,6 +35,7 @@ func main() {
 	handlersByVersion := versioning.NewHandlersByVersion(deps)
 
 	router := gin.Default()
+	router.GET(versioning.EndpointWellKnownBank, misc.PingV1dot0)
 
 	api := router.Group("/api")
 

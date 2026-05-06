@@ -8,6 +8,7 @@ const (
 
 const (
 	EndpointPing             = "/ping"
+	EndpointWellKnownBank    = "/.well-known/beshence/bank"
 	EndpointRegister         = "/auth/register"
 	EndpointLogin            = "/auth/login"
 	EndpointRefresh          = "/auth/refresh"

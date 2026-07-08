@@ -2,7 +2,6 @@ package main
 
 import (
 	"bank/internal/api"
-	"bank/internal/api/endpoints/misc"
 	"bank/internal/api/versioning"
 	"bank/internal/auth"
 	"bank/internal/config"
@@ -40,7 +39,12 @@ func main() {
 	)
 
 	router := gin.Default()
-	router.GET("/.well-known/beshence/bank", misc.PingV1)
+	router.GET("/.well-known/beshence/bank", func(c *gin.Context) {
+		c.Request.URL.Path = "/api/ping"
+		c.Request.URL.RawPath = ""
+
+		router.HandleContext(c)
+	})
 
 	dependencies := api.NewDependencies(
 		db,

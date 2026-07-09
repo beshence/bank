@@ -4,15 +4,15 @@ import (
 	"bank/internal/api"
 	"bank/internal/api/versioning"
 	"bank/internal/auth"
-	"bank/internal/config"
 	"bank/internal/database"
+	"bank/internal/env"
 	"log"
 
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
-	cfg, err := config.Load()
+	cfg, err := env.Load()
 	if err != nil {
 		log.Fatal(err)
 	}

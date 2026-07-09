@@ -1,4 +1,4 @@
-package config
+package env
 
 import (
 	"errors"
@@ -20,50 +20,50 @@ var (
 	ErrAccessJWTTTLInvalid   = errors.New("ACCESS_JWT_TTL_SECONDS must be a positive integer")
 )
 
-type Config struct {
+type Env struct {
 	DatabaseURL          string
 	JWTSecret            string
 	AccessJWTTTLSeconds  time.Duration
 	RefreshJWTTTLSeconds time.Duration
 }
 
-func Load() (Config, error) {
+func Load() (Env, error) {
 	_ = godotenv.Load()
 
 	databaseUrl, err := resolveDatabaseURL()
 	if err != nil {
-		return Config{}, err
+		return Env{}, err
 	}
 
 	jwtSecret := os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
-		return Config{}, ErrJWTSecretRequired
+		return Env{}, ErrJWTSecretRequired
 	}
 	if jwtSecret == "change_me_to_a_long_random_secret" {
-		return Config{}, ErrJWTSecretRequired
+		return Env{}, ErrJWTSecretRequired
 	}
 
 	accessJWTTTLRaw := os.Getenv("ACCESS_JWT_TTL_SECONDS")
 	if accessJWTTTLRaw == "" {
-		return Config{}, ErrAccessJWTTTLRequired
+		return Env{}, ErrAccessJWTTTLRequired
 	}
 
 	accessJWTTTLSeconds, err := strconv.Atoi(accessJWTTTLRaw)
 	if err != nil || accessJWTTTLSeconds <= 0 {
-		return Config{}, ErrAccessJWTTTLInvalid
+		return Env{}, ErrAccessJWTTTLInvalid
 	}
 
 	refreshJWTTTLRaw := os.Getenv("REFRESH_JWT_TTL_SECONDS")
 	if refreshJWTTTLRaw == "" {
-		return Config{}, ErrRefreshJWTTTLRequired
+		return Env{}, ErrRefreshJWTTTLRequired
 	}
 
 	refreshJWTTTLSeconds, err := strconv.Atoi(refreshJWTTTLRaw)
 	if err != nil || refreshJWTTTLSeconds <= 0 {
-		return Config{}, ErrRefreshJWTTTLInvalid
+		return Env{}, ErrRefreshJWTTTLInvalid
 	}
 
-	return Config{
+	return Env{
 		DatabaseURL:          databaseUrl,
 		JWTSecret:            jwtSecret,
 		AccessJWTTTLSeconds:  time.Duration(accessJWTTTLSeconds) * time.Second,

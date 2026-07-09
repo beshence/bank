@@ -14,17 +14,17 @@ import (
 )
 
 var (
-	bankDecapsulationKey     *mlkem.DecapsulationKey1024
-	bankDecapsulationKeyErr  error
-	bankDecapsulationKeyOnce sync.Once
-	bankEncapsulationKey     *mlkem.EncapsulationKey1024
-	bankEncapsulationKeyErr  error
-	bankEncapsulationKeyOnce sync.Once
-	bankID                   string
-	bankIDOnce               sync.Once
+	bankDecapsulationKey           *mlkem.DecapsulationKey1024
+	bankDecapsulationKeyErr        error
+	bankEncapsulationKey           *mlkem.EncapsulationKey1024
+	bankKeypairOnce                sync.Once
+	bankEncapsulationKeyBase64     string
+	bankEncapsulationKeyBase64Once sync.Once
+	bankID                         string
+	bankIDOnce                     sync.Once
 )
 
-func loadOrGenerateBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey1024, error) {
+func loadOrGenerateBankKeypair(db *gorm.DB) (*mlkem.DecapsulationKey1024, *mlkem.EncapsulationKey1024, error) {
 	const keyName = "bank_decapsulation_key"
 	var setting models.Setting
 	var decapsulationKey *mlkem.DecapsulationKey1024
@@ -35,18 +35,18 @@ func loadOrGenerateBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey102
 	case err == nil:
 		raw, err := base64.RawURLEncoding.DecodeString(setting.Value)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		decapsulationKey, err = mlkem.NewDecapsulationKey1024(raw)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		decapsulationKey, err = mlkem.GenerateKey1024()
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		err = db.Create(&models.Setting{
@@ -55,25 +55,49 @@ func loadOrGenerateBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey102
 		}).Error
 
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 	default:
-		return nil, err
+		return nil, nil, err
 	}
 
-	return decapsulationKey, nil
+	return decapsulationKey, decapsulationKey.EncapsulationKey(), nil
 }
 
-func loadOrGenerateBankEncapsulationKey(db *gorm.DB) (*mlkem.EncapsulationKey1024, error) {
-	decapsulationKey, _ := loadOrGenerateBankDecapsulationKey(db)
-	return decapsulationKey.EncapsulationKey(), nil
+func loadOrGenerateBankKeypairOnce(db *gorm.DB) {
+	bankKeypairOnce.Do(func() {
+		bankDecapsulationKey, bankEncapsulationKey, bankDecapsulationKeyErr = loadOrGenerateBankKeypair(db)
+	})
+}
+
+func GetBankKeypair(db *gorm.DB) (*mlkem.DecapsulationKey1024, *mlkem.EncapsulationKey1024, error) {
+	loadOrGenerateBankKeypairOnce(db)
+	return bankDecapsulationKey, bankEncapsulationKey, bankDecapsulationKeyErr
+}
+
+func GetBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey1024, error) {
+	loadOrGenerateBankKeypairOnce(db)
+	return bankDecapsulationKey, bankDecapsulationKeyErr
+}
+
+func GetBankEncapsulationKey(db *gorm.DB) (*mlkem.EncapsulationKey1024, error) {
+	loadOrGenerateBankKeypairOnce(db)
+	return bankEncapsulationKey, bankDecapsulationKeyErr
+}
+
+func GetBankEncapsulationKeyBase64(db *gorm.DB) string {
+	bankEncapsulationKeyBase64Once.Do(func() {
+		key, _ := GetBankEncapsulationKey(db)
+		bankEncapsulationKeyBase64 = base64.StdEncoding.EncodeToString(key.Bytes())
+	})
+	return bankEncapsulationKeyBase64
 }
 
 func generateBankID(key *mlkem.EncapsulationKey1024) string {
 	h := sha3.New256()
 
-	h.Write([]byte("BESHENCE-BANK-ID-v1"))
+	h.Write([]byte("BESHENCE-BANK-ID-V1"))
 	h.Write(key.Bytes())
 
 	encoder := base32.StdEncoding.WithPadding(base32.NoPadding)
@@ -81,25 +105,14 @@ func generateBankID(key *mlkem.EncapsulationKey1024) string {
 	return strings.ToLower(encodedStr)
 }
 
-func GetBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey1024, error) {
-	bankDecapsulationKeyOnce.Do(func() {
-		bankDecapsulationKey, bankDecapsulationKeyErr = loadOrGenerateBankDecapsulationKey(db)
+func generateBankIDOnce(db *gorm.DB) {
+	bankIDOnce.Do(func() {
+		key, _ := GetBankEncapsulationKey(db)
+		bankID = generateBankID(key)
 	})
-	return bankDecapsulationKey, bankDecapsulationKeyErr
-}
-
-func GetBankEncapsulationKey(db *gorm.DB) (*mlkem.EncapsulationKey1024, error) {
-	bankEncapsulationKeyOnce.Do(func() {
-		bankEncapsulationKey, bankEncapsulationKeyErr = loadOrGenerateBankEncapsulationKey(db)
-	})
-	return bankEncapsulationKey, bankEncapsulationKeyErr
 }
 
 func GetBankID(db *gorm.DB) string {
-	bankIDOnce.Do(func() {
-		key, _ := loadOrGenerateBankEncapsulationKey(db)
-		bankID = generateBankID(key)
-	})
-
+	generateBankIDOnce(db)
 	return bankID
 }

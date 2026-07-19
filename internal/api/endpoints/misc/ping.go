@@ -24,7 +24,12 @@ func PingV1(deps *api.Dependencies, versions []string) gin.HandlerFunc {
 				"versions": versions,
 			},
 			"auth": gin.H{
-				"methods": []string{"usernameAndPassword"},
+				"login": gin.H{
+					"methods": []string{"usernameAndPassword"},
+				},
+				"register": gin.H{
+					"methods": []string{"usernameAndPassword"},
+				},
 			},
 		})
 	}

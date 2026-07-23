@@ -20,7 +20,7 @@ func PingV1(deps *api.Dependencies, versions []string) gin.HandlerFunc {
 			"ping": "beshence-bank-pong!",
 			"id":   settings.GetBankID(deps.DB),
 			"api": gin.H{
-				"urls":     []string{"https://127.0.0.1:27462/api"},
+				"urls":     settings.GetAPIUrls(),
 				"versions": versions,
 			},
 			"auth": gin.H{

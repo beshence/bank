@@ -5,8 +5,10 @@ import (
 	"bank/internal/api/versioning"
 	"bank/internal/auth"
 	"bank/internal/database"
-	"bank/internal/env"
+	"bank/internal/environment"
+	"bank/internal/settings"
 	"log"
+	"os"
 	"time"
 
 	"github.com/gin-contrib/cors"
@@ -14,12 +16,12 @@ import (
 )
 
 func main() {
-	cfg, err := env.Load()
+	env, err := environment.Load()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	db, err := database.New(cfg.DatabaseURL)
+	db, err := database.New(env.DatabaseURL)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -29,14 +31,14 @@ func main() {
 	}
 
 	refreshJWT := auth.NewJWTManager(
-		cfg.JWTSecret,
-		cfg.RefreshJWTTTLSeconds,
+		env.JWTSecret,
+		env.RefreshJWTTTLSeconds,
 		auth.TokenTypeRefresh,
 	)
 
 	accessJWT := auth.NewJWTManager(
-		cfg.JWTSecret,
-		cfg.AccessJWTTTLSeconds,
+		env.JWTSecret,
+		env.AccessJWTTTLSeconds,
 		auth.TokenTypeAccess,
 	)
 
@@ -60,8 +62,13 @@ func main() {
 	apiRoute := router.Group("/api")
 	versioning.RegisterVersionedRoutes(apiRoute, versionedEndpoints)
 
-	err = router.Run(":27462")
-	if err != nil {
-		log.Fatal(err)
+	port := os.Getenv("BANK_PORT")
+
+	if port == "" {
+		port = "27462"
 	}
+
+	settings.InitAPIUrls(port)
+
+	log.Fatal(router.Run(":" + port))
 }

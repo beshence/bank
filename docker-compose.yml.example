@@ -1,15 +1,12 @@
 services:
   beshence_bank:
     image: ghcr.io/beshence/bank:latest
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     environment:
-      BANK_ID: ${BANK_ID}
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      REFRESH_JWT_TTL_SECONDS: ${REFRESH_JWT_TTL_SECONDS}
-      ACCESS_JWT_TTL_SECONDS: ${ACCESS_JWT_TTL_SECONDS}
-    ports:
-      - "${HOST_PORT:-27462}:27462"
-    # or use network_mode: "host"
+      BANK_PORT: ${BANK_PORT}
+      BANK_DATABASE_URL: ${BANK_DATABASE_URL}
+      BANK_JWT_SECRET: ${BANK_JWT_SECRET}
+      BANK_REFRESH_JWT_TTL_SECONDS: ${BANK_REFRESH_JWT_TTL_SECONDS}
+      BANK_ACCESS_JWT_TTL_SECONDS: ${BANK_ACCESS_JWT_TTL_SECONDS}
+      BANK_PUBLIC_URLS: ${BANK_PUBLIC_URLS}
+    network_mode: "host"
     restart: unless-stopped

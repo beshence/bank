@@ -16,7 +16,9 @@ RUN apk add --no-cache curl
 
 COPY --from=builder /usr/local/bin/bank /usr/local/bin/bank
 
-EXPOSE 27462
+ARG BANK_PORT=27462
+
+EXPOSE ${BANK_PORT}
 
 ENTRYPOINT ["/usr/local/bin/bank"]
 

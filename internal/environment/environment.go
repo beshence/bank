@@ -1,4 +1,4 @@
-package env
+package environment
 
 import (
 	"errors"
@@ -11,13 +11,13 @@ import (
 )
 
 var (
-	ErrDatabaseURLRequired   = errors.New("DATABASE_URL is required")
-	ErrDatabaseURLInvalid    = errors.New("DATABASE_URL is invalid")
-	ErrJWTSecretRequired     = errors.New("JWT_SECRET is required")
-	ErrRefreshJWTTTLRequired = errors.New("REFRESH_JWT_TTL_SECONDS is required")
-	ErrAccessJWTTTLRequired  = errors.New("ACCESS_JWT_TTL_SECONDS is required")
-	ErrRefreshJWTTTLInvalid  = errors.New("REFRESH_JWT_TTL_SECONDS must be a positive integer")
-	ErrAccessJWTTTLInvalid   = errors.New("ACCESS_JWT_TTL_SECONDS must be a positive integer")
+	ErrDatabaseURLRequired   = errors.New("BANK_DATABASE_URL is required")
+	ErrDatabaseURLInvalid    = errors.New("BANK_DATABASE_URL is invalid")
+	ErrJWTSecretRequired     = errors.New("BANK_JWT_SECRET is required")
+	ErrRefreshJWTTTLRequired = errors.New("BANK_REFRESH_JWT_TTL_SECONDS is required")
+	ErrAccessJWTTTLRequired  = errors.New("BANK_ACCESS_JWT_TTL_SECONDS is required")
+	ErrRefreshJWTTTLInvalid  = errors.New("BANK_REFRESH_JWT_TTL_SECONDS must be a positive integer")
+	ErrAccessJWTTTLInvalid   = errors.New("BANK_ACCESS_JWT_TTL_SECONDS must be a positive integer")
 )
 
 type Env struct {
@@ -35,7 +35,7 @@ func Load() (Env, error) {
 		return Env{}, err
 	}
 
-	jwtSecret := os.Getenv("JWT_SECRET")
+	jwtSecret := os.Getenv("BANK_JWT_SECRET")
 	if jwtSecret == "" {
 		return Env{}, ErrJWTSecretRequired
 	}
@@ -43,7 +43,7 @@ func Load() (Env, error) {
 		return Env{}, ErrJWTSecretRequired
 	}
 
-	accessJWTTTLRaw := os.Getenv("ACCESS_JWT_TTL_SECONDS")
+	accessJWTTTLRaw := os.Getenv("BANK_ACCESS_JWT_TTL_SECONDS")
 	if accessJWTTTLRaw == "" {
 		return Env{}, ErrAccessJWTTTLRequired
 	}
@@ -53,7 +53,7 @@ func Load() (Env, error) {
 		return Env{}, ErrAccessJWTTTLInvalid
 	}
 
-	refreshJWTTTLRaw := os.Getenv("REFRESH_JWT_TTL_SECONDS")
+	refreshJWTTTLRaw := os.Getenv("BANK_REFRESH_JWT_TTL_SECONDS")
 	if refreshJWTTTLRaw == "" {
 		return Env{}, ErrRefreshJWTTTLRequired
 	}
@@ -72,7 +72,7 @@ func Load() (Env, error) {
 }
 
 func resolveDatabaseURL() (string, error) {
-	databaseURL := os.Getenv("DATABASE_URL")
+	databaseURL := os.Getenv("BANK_DATABASE_URL")
 	if databaseURL == "" {
 		return "", ErrDatabaseURLRequired
 	}

@@ -6,6 +6,7 @@ import (
 	"bank/internal/auth"
 	"bank/internal/database"
 	"bank/internal/environment"
+	"bank/internal/gateway"
 	"bank/internal/settings"
 	"log"
 	"os"
@@ -69,6 +70,8 @@ func main() {
 	}
 
 	settings.InitAPIUrls(port)
+
+	gateway.StartPublisher(db)
 
 	log.Fatal(router.Run(":" + port))
 }

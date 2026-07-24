@@ -599,7 +599,6 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 
 				oauthToken := models.OauthToken{
 					ID:        tokenID,
-					AccountID: accountID,
 					VaultID:   vaultID,
 					Scope:     payload.Event.Scope,
 					CreatedAt: time.Now(),

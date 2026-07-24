@@ -47,12 +47,7 @@ func GetCurrentOauthContext(c *gin.Context, db *gorm.DB) (uuid.UUID, uuid.UUID, 
 
 	// the token is in the format "oauthv1_<accountID>_<vaultID>_<tokenID>"
 	parts := strings.Split(token, "_")
-	if len(parts) != 4 || parts[0] != "oauthv1" {
-		return uuid.Nil, uuid.Nil, "", false
-	}
-
-	accountID, err := uuid.Parse(parts[1])
-	if err != nil {
+	if len(parts) != 3 || parts[0] != "oauthv1" {
 		return uuid.Nil, uuid.Nil, "", false
 	}
 
@@ -68,8 +63,8 @@ func GetCurrentOauthContext(c *gin.Context, db *gorm.DB) (uuid.UUID, uuid.UUID, 
 
 	var oauthToken models.OauthToken
 
-	err = db.Where("id = ? AND account_id = ? AND vault_id = ?",
-		tokenID, accountID, vaultID).First(&oauthToken).Error
+	err = db.Where("id = ? AND vault_id = ?",
+		tokenID, vaultID).First(&oauthToken).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return uuid.Nil, uuid.Nil, "", false
@@ -77,7 +72,7 @@ func GetCurrentOauthContext(c *gin.Context, db *gorm.DB) (uuid.UUID, uuid.UUID, 
 		return uuid.Nil, uuid.Nil, "", false
 	}
 
-	return accountID, vaultID, oauthToken.Scope, true
+	return oauthToken.Vault.AccountID, vaultID, oauthToken.Scope, true
 }
 
 func GetCurrentAccount(c *gin.Context) (uuid.UUID, bool) {
@@ -154,16 +149,7 @@ func CheckAuth(jwtManager *JWT, db *gorm.DB) gin.HandlerFunc {
 
 			// the token is in the format "oauthv1_<accountID>_<vaultID>_<tokenID>"
 			parts := strings.Split(token, "_")
-			if len(parts) != 4 || parts[0] != "oauthv1" {
-				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-					"err":    "UNAUTHORIZED",
-					"errmsg": "invalid oauth token",
-				})
-				return
-			}
-
-			accountID, err := uuid.Parse(parts[1])
-			if err != nil {
+			if len(parts) != 3 || parts[0] != "oauthv1" {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"err":    "UNAUTHORIZED",
 					"errmsg": "invalid oauth token",
@@ -191,8 +177,8 @@ func CheckAuth(jwtManager *JWT, db *gorm.DB) gin.HandlerFunc {
 
 			var oauthToken models.OauthToken
 
-			err = db.Where("id = ? AND account_id = ? AND vault_id = ?",
-				tokenID, accountID, vaultID).First(&oauthToken).Error
+			err = db.Where("id = ? AND vault_id = ?",
+				tokenID, vaultID).First(&oauthToken).Error
 
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{

@@ -2,13 +2,16 @@ package bank
 
 import (
 	"bank/internal/api"
+	"bank/internal/auth"
 	"bank/internal/database/models"
-	"bank/internal/middleware"
 	"bank/internal/misc"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -49,7 +52,11 @@ func EventsV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := middleware.GetCurrentAccount(c)
+		chainName := c.Param("chainName")
+
+		// TODO: check for name
+
+		tokenType, ok := auth.GetCurrentTokenType(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -58,18 +65,49 @@ func EventsV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		vaultID, err := uuid.Parse(c.Param("vaultId"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid vault id",
-			})
-			return
+		var accountID uuid.UUID
+		var vaultID uuid.UUID
+
+		if tokenType == auth.TokenTypeOauth {
+			var scope string
+			accountID, vaultID, scope, ok = auth.GetCurrentOauthContext(c, deps.DB)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			parts := strings.Split(scope, ";")
+			found := slices.Contains(parts, "chain:"+chainName+":r") || slices.Contains(parts, "chain:"+chainName+":rw")
+
+			if !found {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+			}
+		} else {
+			accountID, ok = auth.GetCurrentAccount(c)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			var err error
+			vaultID, err = uuid.Parse(c.Param("vaultId"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid vault id",
+				})
+				return
+			}
 		}
-
-		chainName := c.Param("chainName")
-
-		// TODO: check for name
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -162,7 +200,11 @@ func LastEventV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := middleware.GetCurrentAccount(c)
+		chainName := c.Param("chainName")
+
+		// TODO: check for name
+
+		tokenType, ok := auth.GetCurrentTokenType(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -171,16 +213,49 @@ func LastEventV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		vaultID, err := uuid.Parse(c.Param("vaultId"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid vault id",
-			})
-			return
-		}
+		var accountID uuid.UUID
+		var vaultID uuid.UUID
 
-		chainName := c.Param("chainName")
+		if tokenType == auth.TokenTypeOauth {
+			var scope string
+			accountID, vaultID, scope, ok = auth.GetCurrentOauthContext(c, deps.DB)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			parts := strings.Split(scope, ";")
+			found := slices.Contains(parts, "chain:"+chainName+":r") || slices.Contains(parts, "chain:"+chainName+":rw")
+
+			if !found {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+			}
+		} else {
+			accountID, ok = auth.GetCurrentAccount(c)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			var err error
+			vaultID, err = uuid.Parse(c.Param("vaultId"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid vault id",
+				})
+				return
+			}
+		}
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -254,7 +329,11 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := middleware.GetCurrentAccount(c)
+		chainName := c.Param("chainName")
+
+		// TODO: check for name
+
+		tokenType, ok := auth.GetCurrentTokenType(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -263,18 +342,49 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		vaultID, err := uuid.Parse(c.Param("vaultId"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid vault id",
-			})
-			return
+		var accountID uuid.UUID
+		var vaultID uuid.UUID
+
+		if tokenType == auth.TokenTypeOauth {
+			var scope string
+			accountID, vaultID, scope, ok = auth.GetCurrentOauthContext(c, deps.DB)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			parts := strings.Split(scope, ";")
+			found := slices.Contains(parts, "chain:"+chainName+":rw")
+
+			if !found {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+			}
+		} else {
+			accountID, ok = auth.GetCurrentAccount(c)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			var err error
+			vaultID, err = uuid.Parse(c.Param("vaultId"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid vault id",
+				})
+				return
+			}
 		}
-
-		chainName := c.Param("chainName")
-
-		// TODO: check for name
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountID); err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -455,6 +565,63 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 				"err": "0",
 			})
 			return
+		}
+
+		// Handle special events
+		if chainName == "tokens" {
+			var payload struct {
+				Name  string `json:"n"`
+				Event struct {
+					Token string `json:"id"`
+					Scope string `json:"scope"`
+				} `json:"e"`
+			}
+
+			if err := json.Unmarshal([]byte(request.Payload), &payload); err != nil {
+				rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid event payload",
+				})
+				return
+			}
+
+			if payload.Name == "issue_token_v1" {
+				tokenID, err := uuid.Parse(payload.Event.Token)
+				if err != nil {
+					rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"err":    "UNKNOWN",
+						"errmsg": "invalid oauth token id",
+					})
+					return
+				}
+
+				oauthToken := models.OauthToken{
+					ID:        tokenID,
+					VaultID:   vaultID,
+					Scope:     payload.Event.Scope,
+					CreatedAt: time.Now(),
+				}
+
+				if err := tx.Create(&oauthToken).Error; err != nil {
+					rollback()
+
+					if errors.Is(err, gorm.ErrDuplicatedKey) {
+						c.JSON(http.StatusConflict, gin.H{
+							"err":    "UNKNOWN",
+							"errmsg": "oauth token already exists",
+						})
+						return
+					}
+
+					c.JSON(http.StatusInternalServerError, gin.H{
+						"err":    "UNKNOWN",
+						"errmsg": "failed to create oauth token",
+					})
+					return
+				}
+			}
 		}
 
 		if err := tx.Model(&models.Chain{}).Where("name = ? AND vault_id = ?", chainName, vaultID).Update("last_event_id", eventID).Error; err != nil {

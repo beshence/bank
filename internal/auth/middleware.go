@@ -45,8 +45,8 @@ func GetCurrentSession(c *gin.Context) (uuid.UUID, uuid.UUID, bool) {
 	return sessionID, refreshTokenID, true
 }
 
-func RequireAuth(jwt *JWT, tt TokenType, h gin.HandlerFunc) gin.HandlerFunc {
-	mw := CheckAuth(jwt, tt)
+func RequireAuth(jwt *JWT, h gin.HandlerFunc) gin.HandlerFunc {
+	mw := CheckAuth(jwt)
 	return func(c *gin.Context) {
 		mw(c)
 		if c.IsAborted() {
@@ -56,11 +56,10 @@ func RequireAuth(jwt *JWT, tt TokenType, h gin.HandlerFunc) gin.HandlerFunc {
 	}
 }
 
-func CheckAuth(jwtManager *JWT, expectedTokenType TokenType) gin.HandlerFunc {
+func CheckAuth(jwtManager *JWT) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if jwtManager == nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-
 				"err":    "UNKNOWN",
 				"errmsg": "auth is not configured",
 			})
@@ -133,7 +132,7 @@ func CheckAuth(jwtManager *JWT, expectedTokenType TokenType) gin.HandlerFunc {
 			}
 		}
 
-		if authClaims.TokenType != expectedTokenType {
+		if authClaims.TokenType != jwtManager.tokenType {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
 				"errmsg": "invalid token type",

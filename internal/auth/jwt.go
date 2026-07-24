@@ -8,9 +8,9 @@ import (
 )
 
 type JWT struct {
-	secret []byte
-	ttl    time.Duration
-	typeID TokenType
+	secret    []byte
+	ttl       time.Duration
+	tokenType TokenType
 }
 
 type Claims struct {
@@ -27,11 +27,11 @@ const (
 	TokenTypeRefresh TokenType = "refresh"
 )
 
-func NewJWTManager(secret string, ttl time.Duration, typeID TokenType) *JWT {
+func NewJWTManager(secret string, ttl time.Duration, tokenType TokenType) *JWT {
 	return &JWT{
-		secret: []byte(secret),
-		ttl:    ttl,
-		typeID: typeID,
+		secret:    []byte(secret),
+		ttl:       ttl,
+		tokenType: tokenType,
 	}
 }
 
@@ -42,12 +42,12 @@ func (m *JWT) GenerateToken(sessionID uuid.UUID, accountID uuid.UUID, refreshTok
 	claims := jwt.MapClaims{
 		"sub": sessionID.String(),
 		"aid": accountID.String(),
-		"typ": string(m.typeID),
+		"typ": string(m.tokenType),
 		"iat": now.Unix(),
 		"exp": expiresAt.Unix(),
 	}
 
-	if m.typeID == TokenTypeRefresh {
+	if m.tokenType == TokenTypeRefresh {
 		claims["rid"] = refreshTokenID.String()
 	}
 

@@ -1,7 +1,6 @@
-package middleware
+package auth
 
 import (
-	"bank/internal/auth"
 	"net/http"
 	"strings"
 
@@ -46,7 +45,7 @@ func GetCurrentSession(c *gin.Context) (uuid.UUID, uuid.UUID, bool) {
 	return sessionID, refreshTokenID, true
 }
 
-func RequireAuth(jwt *auth.JWT, tt auth.TokenType, h gin.HandlerFunc) gin.HandlerFunc {
+func RequireAuth(jwt *JWT, tt TokenType, h gin.HandlerFunc) gin.HandlerFunc {
 	mw := CheckAuth(jwt, tt)
 	return func(c *gin.Context) {
 		mw(c)
@@ -57,7 +56,7 @@ func RequireAuth(jwt *auth.JWT, tt auth.TokenType, h gin.HandlerFunc) gin.Handle
 	}
 }
 
-func CheckAuth(jwtManager *auth.JWT, expectedTokenType auth.TokenType) gin.HandlerFunc {
+func CheckAuth(jwtManager *JWT, expectedTokenType TokenType) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if jwtManager == nil {
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
@@ -95,7 +94,7 @@ func CheckAuth(jwtManager *auth.JWT, expectedTokenType auth.TokenType) gin.Handl
 			return
 		}
 
-		authClaims, claimsOk := auth.ClaimsFromToken(claims)
+		authClaims, claimsOk := ClaimsFromToken(claims)
 		if !claimsOk {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",

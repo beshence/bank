@@ -4,7 +4,6 @@ import (
 	"bank/internal/api"
 	"bank/internal/auth"
 	"bank/internal/database/models"
-	"bank/internal/middleware"
 	"errors"
 	"net/http"
 
@@ -22,7 +21,7 @@ func RefreshV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := middleware.GetCurrentAccount(c)
+		accountID, ok := auth.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -31,7 +30,7 @@ func RefreshV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		sessionID, tokenRefreshTokenID, ok := middleware.GetCurrentSession(c)
+		sessionID, tokenRefreshTokenID, ok := auth.GetCurrentSession(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",

@@ -2,8 +2,8 @@ package auth
 
 import (
 	"bank/internal/api"
+	"bank/internal/auth"
 	"bank/internal/database/models"
-	"bank/internal/middleware"
 	"errors"
 	"net/http"
 
@@ -21,7 +21,7 @@ func MeV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := middleware.GetCurrentAccount(c)
+		accountID, ok := auth.GetCurrentAccount(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",

@@ -6,6 +6,8 @@ import (
 	"bank/internal/database/models"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -27,7 +29,7 @@ func ChainsV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := auth.GetCurrentAccount(c)
+		tokenType, ok := auth.GetCurrentTokenType(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -36,13 +38,37 @@ func ChainsV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		vaultID, err := uuid.Parse(c.Param("vaultId"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid vault id",
-			})
-			return
+		var accountID uuid.UUID
+		var vaultID uuid.UUID
+
+		if tokenType == auth.TokenTypeOauth {
+			accountID, vaultID, _, ok = auth.GetCurrentOauthContext(c, deps.DB)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+		} else {
+			accountID, ok = auth.GetCurrentAccount(c)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			var err error
+			vaultID, err = uuid.Parse(c.Param("vaultId"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid vault id",
+				})
+				return
+			}
 		}
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountID); err != nil {
@@ -89,7 +115,16 @@ func CreateChainV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		accountID, ok := auth.GetCurrentAccount(c)
+		var request createChainRequest
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"err":    "UNKNOWN",
+				"errmsg": "invalid request body",
+			})
+			return
+		}
+
+		tokenType, ok := auth.GetCurrentTokenType(c)
 		if !ok {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"err":    "UNAUTHORIZED",
@@ -98,13 +133,48 @@ func CreateChainV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		vaultID, err := uuid.Parse(c.Param("vaultId"))
-		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid vault id",
-			})
-			return
+		var accountID uuid.UUID
+		var vaultID uuid.UUID
+
+		if tokenType == auth.TokenTypeOauth {
+			var scope string
+			accountID, vaultID, scope, ok = auth.GetCurrentOauthContext(c, deps.DB)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			parts := strings.Split(scope, ";")
+			found := slices.Contains(parts, "chain:"+request.Name+":r") || slices.Contains(parts, "chain:"+request.Name+":rw")
+
+			if !found {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+			}
+		} else {
+			accountID, ok = auth.GetCurrentAccount(c)
+			if !ok {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "unauthorized",
+				})
+				return
+			}
+
+			var err error
+			vaultID, err = uuid.Parse(c.Param("vaultId"))
+			if err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"err":    "UNKNOWN",
+					"errmsg": "invalid vault id",
+				})
+				return
+			}
 		}
 
 		if _, err := loadVaultForAccount(deps.DB, vaultID, accountID); err != nil {
@@ -119,15 +189,6 @@ func CreateChainV1(deps *api.Dependencies) gin.HandlerFunc {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"err":    "UNKNOWN",
 				"errmsg": "failed to load vault",
-			})
-			return
-		}
-
-		var request createChainRequest
-		if err := c.ShouldBindJSON(&request); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"err":    "UNKNOWN",
-				"errmsg": "invalid request body",
 			})
 			return
 		}

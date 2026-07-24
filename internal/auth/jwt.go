@@ -23,6 +23,7 @@ type Claims struct {
 type TokenType string
 
 const (
+	TokenTypeOauth   TokenType = "oauth"
 	TokenTypeAccess  TokenType = "access"
 	TokenTypeRefresh TokenType = "refresh"
 )

@@ -9,11 +9,27 @@ import (
 )
 
 const (
+	ContextAuthTokenTypeKey      = "auth.token_type"
 	ContextAuthClaimsKey         = "auth.claims"
 	ContextAuthSessionIDKey      = "auth.session_id"
 	ContextAuthAccountIDKey      = "auth.account_id"
 	ContextAuthRefreshTokenIDKey = "auth.refresh_token_id"
+	ContextAuthOauthTokenKey     = "auth.oauth_token"
 )
+
+func GetCurrentTokenType(c *gin.Context) (TokenType, bool) {
+	tokenTypeValue, tokenTypeExists := c.Get(ContextAuthTokenTypeKey)
+	if !tokenTypeExists {
+		return "", false
+	}
+
+	tokenType, tokenTypeOk := tokenTypeValue.(TokenType)
+	if !tokenTypeOk || tokenType == "" {
+		return "", false
+	}
+
+	return tokenType, true
+}
 
 func GetCurrentAccount(c *gin.Context) (uuid.UUID, bool) {
 	accountIDValue, accountIDExists := c.Get(ContextAuthAccountIDKey)
@@ -84,45 +100,32 @@ func CheckAuth(jwtManager *JWT) gin.HandlerFunc {
 			return
 		}
 
-		claims, err := jwtManager.ParseToken(token)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"err":    "UNAUTHORIZED",
-				"errmsg": "invalid token",
-			})
-			return
-		}
+		if strings.HasPrefix(token, "oauthv1_") {
+			// this is an oauth token
+			c.Set(ContextAuthOauthTokenKey, TokenTypeOauth)
+			c.Set(ContextAuthOauthTokenKey, token)
+			c.Next()
+		} else {
+			// this is a jwt token
+			jwtClaims, err := jwtManager.ParseToken(token)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "invalid token",
+				})
+				return
+			}
 
-		authClaims, claimsOk := ClaimsFromToken(claims)
-		if !claimsOk {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"err":    "UNAUTHORIZED",
-				"errmsg": "invalid token claims",
-			})
-			return
-		}
+			claims, claimsOk := ClaimsFromToken(jwtClaims)
+			if !claimsOk {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "invalid token claims",
+				})
+				return
+			}
 
-		sessionID, err := uuid.Parse(authClaims.SessionID)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"err":    "UNAUTHORIZED",
-				"errmsg": "invalid token claims",
-			})
-			return
-		}
-
-		accountID, err := uuid.Parse(authClaims.AccountID)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"err":    "UNAUTHORIZED",
-				"errmsg": "invalid token claims",
-			})
-			return
-		}
-
-		refreshTokenID := uuid.Nil
-		if authClaims.RefreshTokenID != "" {
-			refreshTokenID, err = uuid.Parse(authClaims.RefreshTokenID)
+			sessionID, err := uuid.Parse(claims.SessionID)
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"err":    "UNAUTHORIZED",
@@ -130,20 +133,42 @@ func CheckAuth(jwtManager *JWT) gin.HandlerFunc {
 				})
 				return
 			}
-		}
 
-		if authClaims.TokenType != jwtManager.tokenType {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"err":    "UNAUTHORIZED",
-				"errmsg": "invalid token type",
-			})
-			return
-		}
+			accountID, err := uuid.Parse(claims.AccountID)
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "invalid token claims",
+				})
+				return
+			}
 
-		c.Set(ContextAuthClaimsKey, claims)
-		c.Set(ContextAuthSessionIDKey, sessionID)
-		c.Set(ContextAuthAccountIDKey, accountID)
-		c.Set(ContextAuthRefreshTokenIDKey, refreshTokenID)
-		c.Next()
+			refreshTokenID := uuid.Nil
+			if claims.RefreshTokenID != "" {
+				refreshTokenID, err = uuid.Parse(claims.RefreshTokenID)
+				if err != nil {
+					c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+						"err":    "UNAUTHORIZED",
+						"errmsg": "invalid token claims",
+					})
+					return
+				}
+			}
+
+			if claims.TokenType != jwtManager.tokenType {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+					"err":    "UNAUTHORIZED",
+					"errmsg": "invalid token type",
+				})
+				return
+			}
+
+			c.Set(ContextAuthOauthTokenKey, jwtManager.tokenType)
+			c.Set(ContextAuthClaimsKey, claims)
+			c.Set(ContextAuthSessionIDKey, sessionID)
+			c.Set(ContextAuthAccountIDKey, accountID)
+			c.Set(ContextAuthRefreshTokenIDKey, refreshTokenID)
+			c.Next()
+		}
 	}
 }

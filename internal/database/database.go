@@ -23,6 +23,7 @@ func Migrate(db *gorm.DB) error {
 		&models.Vault{},
 		&models.Chain{},
 		&models.Event{},
+		&models.OauthToken{},
 	); err != nil {
 		return err
 	}

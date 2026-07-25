@@ -5,6 +5,7 @@ import (
 	"bank/internal/auth"
 	"bank/internal/database/models"
 	"bank/internal/misc"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -569,7 +570,7 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 
 		// Handle special events
 		if chainName == "tokens" {
-			var payload struct {
+			var payloadJson struct {
 				Name  string `json:"n"`
 				Event struct {
 					Token string `json:"id"`
@@ -577,7 +578,12 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 				} `json:"e"`
 			}
 
-			if err := json.Unmarshal([]byte(request.Payload), &payload); err != nil {
+			eventPayload, err := base64.StdEncoding.DecodeString(request.Payload)
+			if err != nil {
+				panic(err)
+			}
+
+			if err := json.Unmarshal(eventPayload, &payloadJson); err != nil {
 				rollback()
 				c.JSON(http.StatusBadRequest, gin.H{
 					"err":    "UNKNOWN",
@@ -586,8 +592,8 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 				return
 			}
 
-			if payload.Name == "issue_token_v1" {
-				tokenID, err := uuid.Parse(payload.Event.Token)
+			if payloadJson.Name == "issue_token_v1" {
+				tokenID, err := uuid.Parse(payloadJson.Event.Token)
 				if err != nil {
 					rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
@@ -600,7 +606,7 @@ func AddEventV1(deps *api.Dependencies) gin.HandlerFunc {
 				oauthToken := models.OauthToken{
 					ID:        tokenID,
 					VaultID:   vaultID,
-					Scope:     payload.Event.Scope,
+					Scope:     payloadJson.Event.Scope,
 					CreatedAt: time.Now(),
 				}
 

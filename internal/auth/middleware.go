@@ -51,19 +51,19 @@ func GetCurrentOauthContext(c *gin.Context, db *gorm.DB) (uuid.UUID, uuid.UUID, 
 		return uuid.Nil, uuid.Nil, "", false
 	}
 
-	vaultID, err := uuid.Parse(parts[2])
+	vaultID, err := uuid.Parse(parts[1])
 	if err != nil {
 		return uuid.Nil, uuid.Nil, "", false
 	}
 
-	tokenID, err := uuid.Parse(parts[3])
+	tokenID, err := uuid.Parse(parts[2])
 	if err != nil {
 		return uuid.Nil, uuid.Nil, "", false
 	}
 
 	var oauthToken models.OauthToken
 
-	err = db.Where("id = ? AND vault_id = ?",
+	err = db.Preload("Vault").Where("id = ? AND vault_id = ?",
 		tokenID, vaultID).First(&oauthToken).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -157,7 +157,7 @@ func CheckAuth(jwtManager *JWT, db *gorm.DB) gin.HandlerFunc {
 				return
 			}
 
-			vaultID, err := uuid.Parse(parts[2])
+			vaultID, err := uuid.Parse(parts[1])
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"err":    "UNAUTHORIZED",
@@ -166,7 +166,7 @@ func CheckAuth(jwtManager *JWT, db *gorm.DB) gin.HandlerFunc {
 				return
 			}
 
-			tokenID, err := uuid.Parse(parts[3])
+			tokenID, err := uuid.Parse(parts[2])
 			if err != nil {
 				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 					"err":    "UNAUTHORIZED",

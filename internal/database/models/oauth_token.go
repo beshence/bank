@@ -7,7 +7,7 @@ import (
 )
 
 type OauthToken struct {
-	ID        uuid.UUID `gorm:"column:token;type:char(36);primaryKey;not null" json:"token"`
+	ID        uuid.UUID `gorm:"column:id;type:char(36);primaryKey;not null" json:"id"`
 	VaultID   uuid.UUID `gorm:"column:vault_id;type:char(36);primaryKey;not null" json:"vault_id"`
 	Scope     string    `gorm:"column:scope;type:varchar;not null" json:"scope"`
 	CreatedAt time.Time `gorm:"column:created_at;not null" json:"created_at"`

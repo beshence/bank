@@ -205,26 +205,20 @@ func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error)
 
 	template := &x509.Certificate{
 		SerialNumber: serial,
-
 		Subject: pkix.Name{
 			CommonName: "Beshence Bank CA",
 			Organization: []string{
 				"Beshence",
 			},
 		},
-
 		NotBefore: time.Now(),
-
 		NotAfter: time.Now().AddDate(
 			25,
 			0,
 			0,
 		),
-
-		IsCA: true,
-
+		IsCA:                  true,
 		BasicConstraintsValid: true,
-
 		KeyUsage: x509.KeyUsageCertSign |
 			x509.KeyUsageCRLSign |
 			x509.KeyUsageDigitalSignature,
@@ -237,6 +231,12 @@ func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error)
 		&key.PublicKey,
 		key,
 	)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	cert, err := x509.ParseCertificate(der)
 
 	if err != nil {
 		return nil, nil, err
@@ -280,7 +280,7 @@ func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error)
 		return nil, nil, err
 	}
 
-	return key, template, nil
+	return key, cert, nil
 }
 
 func loadOrGenerateCAOnce(db *gorm.DB) {

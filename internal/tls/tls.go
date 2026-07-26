@@ -2,7 +2,6 @@ package tls
 
 import (
 	"bank/internal/settings"
-
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -25,13 +24,16 @@ var (
 )
 
 func GetTLSConfig(db *gorm.DB) (*tls.Config, error) {
-	_, err := generateCertificate(db)
+	cert, err := getCertificate(db)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &tls.Config{
+		Certificates: []tls.Certificate{
+			*cert,
+		},
 		GetCertificate: func(
 			hello *tls.ClientHelloInfo,
 		) (*tls.Certificate, error) {

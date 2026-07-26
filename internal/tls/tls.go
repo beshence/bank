@@ -24,16 +24,13 @@ var (
 )
 
 func GetTLSConfig(db *gorm.DB) (*tls.Config, error) {
-	cert, err := getCertificate(db)
+	_, err := generateCertificate(db)
 
 	if err != nil {
 		return nil, err
 	}
 
 	return &tls.Config{
-		Certificates: []tls.Certificate{
-			*cert,
-		},
 		GetCertificate: func(
 			hello *tls.ClientHelloInfo,
 		) (*tls.Certificate, error) {

@@ -75,17 +75,27 @@ func main() {
 
 	gateway.StartPublisher(db)
 
-	tlsConfig, err := tls.GetTLSConfig(db)
-
-	if err != nil {
-		panic(err)
+	disableTls := os.Getenv("BANK_DISABLE_TLS")
+	disableTlsBool := false
+	if disableTls == "true" || disableTls == "1" {
+		disableTlsBool = true
 	}
 
-	server := &http.Server{
-		Addr:      ":" + port,
-		Handler:   router,
-		TLSConfig: tlsConfig,
-	}
+	if !disableTlsBool {
+		tlsConfig, err := tls.GetTLSConfig(db)
 
-	err = server.ListenAndServeTLS("", "")
+		if err != nil {
+			panic(err)
+		}
+
+		server := &http.Server{
+			Addr:      ":" + port,
+			Handler:   router,
+			TLSConfig: tlsConfig,
+		}
+
+		err = server.ListenAndServeTLS("", "")
+	} else {
+		log.Fatal(router.Run(":" + port))
+	}
 }

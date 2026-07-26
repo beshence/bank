@@ -22,9 +22,22 @@ func InitAPIUrls(port string) {
 		publishLocalIPsBool = false
 	}
 
+	disableTls := os.Getenv("BANK_DISABLE_TLS")
+	disableTlsBool := false
+	if disableTls == "true" || disableTls == "1" {
+		disableTlsBool = true
+	}
+
+	var scheme string
+	if disableTlsBool {
+		scheme = "http://"
+	} else {
+		scheme = "https://"
+	}
+
 	if publishLocalIPsBool {
 		// localhost
-		urls = append(urls, "http://127.0.0.1:"+port+"/api")
+		urls = append(urls, scheme+"127.0.0.1:"+port+"/api")
 
 		// local IPs
 		ifaces, err := net.Interfaces()
@@ -46,7 +59,7 @@ func InitAPIUrls(port string) {
 						continue
 					}
 
-					url := "http://" + ipv4.String() + ":" + port + "/api"
+					url := scheme + ipv4.String() + ":" + port + "/api"
 
 					if !contains(urls, url) {
 						urls = append(urls, url)

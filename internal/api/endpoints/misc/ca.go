@@ -3,6 +3,7 @@ package misc
 import (
 	"bank/internal/api"
 	"bank/internal/settings"
+	"os"
 
 	"crypto/hmac"
 	"crypto/sha3"
@@ -15,6 +16,19 @@ import (
 
 func CAV1(deps *api.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
+		disableTls := os.Getenv("BANK_DISABLE_TLS")
+		disableTlsBool := false
+		if disableTls == "true" || disableTls == "1" {
+			disableTlsBool = true
+		}
+
+		if disableTlsBool {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"err": "UNKNOWN",
+			})
+			return
+		}
+
 		if deps == nil || deps.DB == nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"err": "UNKNOWN",

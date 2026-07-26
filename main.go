@@ -8,7 +8,9 @@ import (
 	"bank/internal/environment"
 	"bank/internal/gateway"
 	"bank/internal/settings"
+	"bank/internal/tls"
 	"log"
+	"net/http"
 	"os"
 	"time"
 
@@ -73,5 +75,27 @@ func main() {
 
 	gateway.StartPublisher(db)
 
-	log.Fatal(router.Run(":" + port))
+	disableTls := os.Getenv("BANK_DISABLE_TLS")
+	disableTlsBool := false
+	if disableTls == "true" || disableTls == "1" {
+		disableTlsBool = true
+	}
+
+	if !disableTlsBool {
+		tlsConfig, err := tls.GetTLSConfig(db)
+
+		if err != nil {
+			panic(err)
+		}
+
+		server := &http.Server{
+			Addr:      ":" + port,
+			Handler:   router,
+			TLSConfig: tlsConfig,
+		}
+
+		err = server.ListenAndServeTLS("", "")
+	} else {
+		log.Fatal(router.Run(":" + port))
+	}
 }

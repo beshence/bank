@@ -38,6 +38,7 @@ func GetVersionedEndpoints(deps *api.Dependencies) VersionedEndpoints {
 					"chain/:chainName/event/last": auth.RequireAuth(deps.AccessJWTManager, deps.DB, bank.LastEventV1(deps)),
 			},
 			http.MethodPost: {
+				"/ca":                   misc.CAV1(deps),
 				"/auth/register":        authend.RegisterV1(deps),
 				"/auth/login":           authend.LoginV1(deps),
 				"/vault":                auth.RequireAuth(deps.AccessJWTManager, deps.DB, bank.CreateVaultV1(deps)),

@@ -98,7 +98,7 @@ func generateCertificate(db *gorm.DB) (*tls.Certificate, error) {
 	}
 
 	key, err := ecdsa.GenerateKey(
-		elliptic.P521(),
+		elliptic.P384(),
 		rand.Reader,
 	)
 

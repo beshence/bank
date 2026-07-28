@@ -162,7 +162,7 @@ func (t *Transport) handleOffer(msg Message) {
 						return
 					}
 
-					response := HandleREST(
+					response := HandleEndpoints(
 						t.Router,
 						req,
 					)

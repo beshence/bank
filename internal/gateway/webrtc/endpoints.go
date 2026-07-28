@@ -6,11 +6,7 @@ import (
 	"net/http/httptest"
 )
 
-func HandleREST(
-	router http.Handler,
-	req Request,
-) Response {
-
+func HandleEndpoints(router http.Handler, req Request) Response {
 	httpReq, err := http.NewRequest(
 		req.Method,
 		"/api"+req.Path,
@@ -32,10 +28,7 @@ func HandleREST(
 
 	recorder := httptest.NewRecorder()
 
-	router.ServeHTTP(
-		recorder,
-		httpReq,
-	)
+	router.ServeHTTP(recorder, httpReq)
 
 	headers := make(map[string]string)
 

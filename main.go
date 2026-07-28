@@ -86,7 +86,7 @@ func main() {
 		panic(err)
 	}
 
-	err = webrtc.Start(bankID, token)
+	err = webrtc.Start(bankID, token, router)
 
 	if err != nil {
 		panic(err)

@@ -1,7 +1,10 @@
 package webrtc
 
 import (
+	"encoding/json"
+	"fmt"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/pion/webrtc/v4"
@@ -26,12 +29,15 @@ type Transport struct {
 
 	Peers map[string]*Peer
 
+	Router http.Handler
+
 	Mu sync.RWMutex
 }
 
 func Start(
 	bankID string,
 	token string,
+	router http.Handler,
 ) error {
 	wsURL := "wss://gateway.beshence.com/api/bank/" + bankID + "/ws?role=bank"
 	config, err := websocket.NewConfig(wsURL, "https://localhost")
@@ -51,8 +57,9 @@ func Start(
 	log.Println("[gateway/webrtc] connected to gateway using websocket, waiting for signaling messages")
 
 	t := &Transport{
-		WS:    ws,
-		Peers: make(map[string]*Peer),
+		WS:     ws,
+		Peers:  make(map[string]*Peer),
+		Router: router,
 	}
 
 	go t.listen()
@@ -139,10 +146,45 @@ func (t *Transport) handleOffer(msg Message) {
 			dc.OnMessage(
 				func(message webrtc.DataChannelMessage) {
 
-					log.Println(
+					/*log.Println(
 						"[gateway/webrtc/"+msg.SessionID+"] received datachannel message:",
 						string(message.Data),
+					)*/
+
+					var req Request
+
+					err := json.Unmarshal(
+						message.Data,
+						&req,
 					)
+
+					if err != nil {
+						return
+					}
+
+					response := HandleREST(
+						t.Router,
+						req,
+					)
+
+					data, err := json.Marshal(
+						response,
+					)
+
+					if err != nil {
+						return
+					}
+
+					err = dc.Send(
+						data,
+					)
+
+					if err != nil {
+						fmt.Println(
+							"send error:",
+							err,
+						)
+					}
 
 				},
 			)

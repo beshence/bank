@@ -7,6 +7,7 @@ import (
 	"bank/internal/database"
 	"bank/internal/environment"
 	"bank/internal/gateway"
+	"bank/internal/gateway/webrtc"
 	"bank/internal/settings"
 	"bank/internal/tls"
 	"log"
@@ -74,6 +75,22 @@ func main() {
 	settings.InitAPIUrls(port)
 
 	gateway.StartPublisher(db)
+
+	gatewayURL := "https://gateway.beshence.com/api"
+
+	bankID := settings.GetBankID(db)
+
+	token, err := gateway.GetGatewayToken(db, gatewayURL, bankID)
+
+	if err != nil {
+		panic(err)
+	}
+
+	err = webrtc.Start(bankID, token, router)
+
+	if err != nil {
+		panic(err)
+	}
 
 	disableTls := os.Getenv("BANK_DISABLE_TLS")
 	disableTlsBool := false

@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/rand"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
@@ -36,6 +38,11 @@ type Transport struct {
 	Router http.Handler
 
 	Mu sync.RWMutex
+
+	BankID string
+	Token  string
+
+	ctx context.Context
 }
 
 func Start(
@@ -43,16 +50,66 @@ func Start(
 	token string,
 	router http.Handler,
 ) error {
+	t := &Transport{
+		Peers:  make(map[string]*Peer),
+		Router: router,
+		BankID: bankID,
+		Token:  token,
+		ctx:    context.Background(),
+	}
+
+	go t.reconnectLoop()
+
+	return nil
+}
+
+func (t *Transport) reconnectLoop() {
+	delay := time.Second
+
+	for {
+		err := t.connect()
+
+		if err == nil {
+			// listen ended so WS disconnected
+			log.Println("[gateway/webrtc] websocket disconnected")
+		} else {
+			log.Println("[gateway/webrtc] connection error:", err)
+		}
+
+		// exponential backoff
+
+		jitter := time.Duration(rand.Intn(500)) * time.Millisecond
+
+		wait := min(delay+jitter, time.Minute)
+
+		log.Println("[gateway/webrtc] reconnecting in", wait)
+
+		time.Sleep(wait)
+
+		delay *= 2
+
+		if delay > time.Minute {
+			delay = time.Minute
+		}
+	}
+}
+
+func (t *Transport) connect() error {
+
 	ctx := context.Background()
 
-	wsURL := "wss://gateway.beshence.com/api/bank/" + bankID + "/ws?role=bank"
+	wsURL :=
+		"wss://gateway.beshence.com/api/bank/" +
+			t.BankID +
+			"/ws?role=bank"
+
 	ws, _, err := websocket.Dial(
 		ctx,
 		wsURL,
 		&websocket.DialOptions{
 			HTTPHeader: map[string][]string{
 				"Authorization": {
-					"Bearer " + token,
+					"Bearer " + t.Token,
 				},
 			},
 		},
@@ -62,20 +119,20 @@ func Start(
 		return err
 	}
 
-	log.Println("[gateway/webrtc] connected to gateway using websocket, waiting for signaling messages")
+	t.Mu.Lock()
 
-	t := &Transport{
-		WS:     ws,
-		Peers:  make(map[string]*Peer),
-		Router: router,
-	}
+	t.WS = ws
 
-	go t.listen()
+	t.Mu.Unlock()
 
-	return nil
+	log.Println(
+		"[gateway/webrtc] connected",
+	)
+
+	return t.listen()
 }
 
-func (t *Transport) listen() {
+func (t *Transport) listen() error {
 	ctx := context.Background()
 
 	for {
@@ -88,7 +145,11 @@ func (t *Transport) listen() {
 		)
 
 		if err != nil {
-			panic(err)
+			log.Println(
+				"[gateway/webrtc] websocket closed:",
+				err,
+			)
+			return err
 		}
 
 		switch msg.Type {
@@ -117,8 +178,20 @@ func (t *Transport) handleOffer(msg Message) {
 	)
 
 	if err != nil {
-		panic(err)
+		log.Println(
+			"create peer connection:",
+			err,
+		)
+		return
 	}
+
+	success := false
+
+	defer func() {
+		if !success {
+			pc.Close()
+		}
+	}()
 
 	pc.OnICECandidate(
 		func(candidate *webrtc.ICECandidate) {
@@ -260,6 +333,8 @@ func (t *Transport) handleOffer(msg Message) {
 		log.Println("send answer error:", err)
 	}
 
+	success = true
+
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] signaling answer sent")
 }
 
@@ -284,6 +359,8 @@ func (t *Transport) handleCandidate(msg Message) {
 	)
 
 	if err != nil {
-		panic(err)
+		log.Println("add ice candidate:", err)
+
+		return
 	}
 }

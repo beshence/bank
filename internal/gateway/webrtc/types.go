@@ -8,7 +8,8 @@ import (
 type RawURLBytes []byte
 
 type Request struct {
-	ID string `json:"id"`
+	Type string `json:"type"`
+	ID   string `json:"id"`
 
 	Method string `json:"method"`
 	Path   string `json:"path"`
@@ -21,7 +22,7 @@ type Request struct {
 type Response struct {
 	ID string `json:"id"`
 
-	// Status int `json:"status"`
+	Status int `json:"status"`
 
 	// Headers map[string]string `json:"headers,omitempty"`
 

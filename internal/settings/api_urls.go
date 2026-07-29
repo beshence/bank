@@ -1,7 +1,6 @@
 package settings
 
 import (
-	"net"
 	"os"
 	"slices"
 	"strings"
@@ -16,7 +15,7 @@ var (
 func InitAPIUrls(port string) {
 	urls := make([]string, 0)
 
-	publishLocalIPs := os.Getenv("BANK_PUBLISH_LOCAL_IPS")
+	/*publishLocalIPs := os.Getenv("BANK_PUBLISH_LOCAL_IPS")
 	publishLocalIPsBool := true
 	if publishLocalIPs == "false" || publishLocalIPs == "0" {
 		publishLocalIPsBool = false
@@ -68,9 +67,7 @@ func InitAPIUrls(port string) {
 				}
 			}
 		}
-
-		urls = append(urls, "gateway://gateway.beshence.com")
-	}
+	}*/
 
 	// from environment
 	envUrls := os.Getenv("BANK_PUBLIC_URLS")
@@ -82,6 +79,8 @@ func InitAPIUrls(port string) {
 			urls = append(urls, url)
 		}
 	}
+
+	urls = append(urls, "gateway://gateway.beshence.com")
 
 	apiMutex.Lock()
 	defer apiMutex.Unlock()

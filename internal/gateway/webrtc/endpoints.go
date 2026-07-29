@@ -15,7 +15,8 @@ func HandleEndpoints(router http.Handler, req Request) Response {
 
 	if err != nil {
 		return Response{
-			ID: req.ID,
+			ID:     req.ID,
+			Status: 500,
 		}
 	}
 
@@ -39,7 +40,8 @@ func HandleEndpoints(router http.Handler, req Request) Response {
 	}
 
 	return Response{
-		ID:   req.ID,
-		Body: recorder.Body.Bytes(),
+		ID:     req.ID,
+		Status: recorder.Code,
+		Body:   recorder.Body.Bytes(),
 	}
 }

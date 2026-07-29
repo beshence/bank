@@ -12,10 +12,12 @@ import (
 )
 
 type Message struct {
-	SessionID string `json:"session_id"`
-	Type      string `json:"type"`
-	SDP       string `json:"sdp,omitempty"`
-	Candidate string `json:"candidate,omitempty"`
+	SessionID     string  `json:"session_id,omitempty"`
+	Type          string  `json:"type"`
+	SDP           string  `json:"sdp,omitempty"`
+	Candidate     string  `json:"candidate,omitempty"`
+	SDPMid        *string `json:"sdpmid,omitempty"`
+	SDPMLineIndex *uint16 `json:"sdpmlineindex,omitempty"`
 }
 
 type Peer struct {
@@ -110,9 +112,11 @@ func (t *Transport) handleOffer(msg Message) {
 			websocket.JSON.Send(
 				t.WS,
 				Message{
-					SessionID: msg.SessionID,
-					Type:      "candidate",
-					Candidate: candidate.ToJSON().Candidate,
+					SessionID:     msg.SessionID,
+					Type:          "candidate",
+					Candidate:     candidate.ToJSON().Candidate,
+					SDPMid:        candidate.ToJSON().SDPMid,
+					SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
 				},
 			)
 		},

@@ -253,7 +253,9 @@ func (t *Transport) handleCandidate(msg Message) {
 
 	err := peer.PC.AddICECandidate(
 		webrtc.ICECandidateInit{
-			Candidate: msg.Candidate,
+			Candidate:     msg.Candidate,
+			SDPMid:        msg.SDPMid,
+			SDPMLineIndex: msg.SDPMLineIndex,
 		},
 	)
 

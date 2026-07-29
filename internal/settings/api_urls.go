@@ -38,6 +38,7 @@ func InitAPIUrls(port string) {
 	if publishLocalIPsBool {
 		// localhost
 		urls = append(urls, scheme+"127.0.0.1:"+port+"/api")
+		urls = append(urls, scheme+"localhost:"+port+"/api")
 
 		// local IPs
 		ifaces, err := net.Interfaces()
@@ -67,6 +68,8 @@ func InitAPIUrls(port string) {
 				}
 			}
 		}
+
+		urls = append(urls, "gateway://gateway.beshence.com")
 	}
 
 	// from environment

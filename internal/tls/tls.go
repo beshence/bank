@@ -85,7 +85,7 @@ func generateCertificate(db *gorm.DB) (*tls.Certificate, error) {
 
 		host := u.Hostname()
 
-		if host == "" {
+		if host == "" || u.Scheme == "gateway" {
 			continue
 		}
 

@@ -95,7 +95,13 @@ func (t *Transport) handleOffer(msg Message) {
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] got signaling offer")
 
 	pc, err := webrtc.NewPeerConnection(
-		webrtc.Configuration{},
+		webrtc.Configuration{
+			ICEServers: []webrtc.ICEServer{
+				{
+					URLs: []string{"stun:stun.l.google.com:19302"},
+				},
+			},
+		},
 	)
 
 	if err != nil {

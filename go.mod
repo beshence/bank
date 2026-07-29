@@ -3,6 +3,7 @@ module bank
 go 1.26
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -10,7 +11,6 @@ require (
 	github.com/joho/godotenv v1.5.1
 	github.com/pion/webrtc/v4 v4.2.18
 	golang.org/x/crypto v0.54.0
-	golang.org/x/net v0.56.0
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.2
 )
@@ -62,6 +62,7 @@ require (
 	github.com/wlynxg/anet v0.0.5 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	golang.org/x/arch v0.23.0 // indirect
+	golang.org/x/net v0.56.0 // indirect
 	golang.org/x/sync v0.22.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect

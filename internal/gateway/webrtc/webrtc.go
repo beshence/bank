@@ -1,14 +1,16 @@
 package webrtc
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"sync"
 
+	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
 	"github.com/pion/webrtc/v4"
-	"golang.org/x/net/websocket"
 )
 
 type Message struct {
@@ -41,16 +43,20 @@ func Start(
 	token string,
 	router http.Handler,
 ) error {
+	ctx := context.Background()
+
 	wsURL := "wss://gateway.beshence.com/api/bank/" + bankID + "/ws?role=bank"
-	config, err := websocket.NewConfig(wsURL, "https://localhost")
-
-	if err != nil {
-		return err
-	}
-
-	config.Header.Set("Authorization", "Bearer "+token)
-
-	ws, err := websocket.DialConfig(config)
+	ws, _, err := websocket.Dial(
+		ctx,
+		wsURL,
+		&websocket.DialOptions{
+			HTTPHeader: map[string][]string{
+				"Authorization": {
+					"Bearer " + token,
+				},
+			},
+		},
+	)
 
 	if err != nil {
 		return err
@@ -70,10 +76,16 @@ func Start(
 }
 
 func (t *Transport) listen() {
+	ctx := context.Background()
+
 	for {
 		var msg Message
 
-		err := websocket.JSON.Receive(t.WS, &msg)
+		err := wsjson.Read(
+			ctx,
+			t.WS,
+			&msg,
+		)
 
 		if err != nil {
 			panic(err)
@@ -115,7 +127,8 @@ func (t *Transport) handleOffer(msg Message) {
 				return
 			}
 
-			websocket.JSON.Send(
+			wsjson.Write(
+				context.Background(),
 				t.WS,
 				Message{
 					SessionID:     msg.SessionID,
@@ -233,7 +246,8 @@ func (t *Transport) handleOffer(msg Message) {
 		return
 	}
 
-	websocket.JSON.Send(
+	err = wsjson.Write(
+		context.Background(),
 		t.WS,
 		Message{
 			SessionID: msg.SessionID,
@@ -241,6 +255,10 @@ func (t *Transport) handleOffer(msg Message) {
 			SDP:       answer.SDP,
 		},
 	)
+
+	if err != nil {
+		log.Println("send answer error:", err)
+	}
 
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] signaling answer sent")
 }

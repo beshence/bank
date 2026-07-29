@@ -212,19 +212,19 @@ func (t *Transport) handleOffer(msg Message) {
 	)
 
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	answer, err := pc.CreateAnswer(nil)
 
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	err = pc.SetLocalDescription(answer)
 
 	if err != nil {
-		panic(err)
+		return
 	}
 
 	websocket.JSON.Send(

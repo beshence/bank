@@ -14,7 +14,38 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func CAV1(deps *api.Dependencies) gin.HandlerFunc {
+func GetCAV1(deps *api.Dependencies) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		disableTls := os.Getenv("BANK_DISABLE_TLS")
+		disableTlsBool := false
+		if disableTls == "true" || disableTls == "1" {
+			disableTlsBool = true
+		}
+
+		if disableTlsBool {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"err": "UNKNOWN",
+			})
+			return
+		}
+
+		if deps == nil || deps.DB == nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"err": "UNKNOWN",
+			})
+			return
+		}
+
+		caPEM := settings.GetBankCACertPEM(deps.DB)
+
+		c.JSON(http.StatusOK, gin.H{
+			"err": "0",
+			"ca":  caPEM,
+		})
+	}
+}
+
+func PostCAV1(deps *api.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		disableTls := os.Getenv("BANK_DISABLE_TLS")
 		disableTlsBool := false

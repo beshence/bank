@@ -1,4 +1,4 @@
-package main
+package runner
 
 import (
 	"bank/internal/api"
@@ -10,7 +10,6 @@ import (
 	"bank/internal/gateway/webrtc"
 	"bank/internal/settings"
 	"bank/internal/tls"
-	"log"
 	"net/http"
 	"os"
 	"time"
@@ -19,19 +18,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
+func Run() error {
 	env, err := environment.Load()
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	db, err := database.New(env.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	if err := database.Migrate(db); err != nil {
-		log.Fatal(err)
+		return err
 	}
 
 	refreshJWT := auth.NewJWTManager(
@@ -83,13 +82,15 @@ func main() {
 	token, err := gateway.GetGatewayToken(db, gatewayURL, bankID)
 
 	if err != nil {
-		panic(err)
+
+		return err
 	}
 
 	err = webrtc.Start(bankID, token, router)
 
 	if err != nil {
-		panic(err)
+
+		return err
 	}
 
 	disableTls := os.Getenv("BANK_DISABLE_TLS")
@@ -102,7 +103,8 @@ func main() {
 		tlsConfig, err := tls.GetTLSConfig(db)
 
 		if err != nil {
-			panic(err)
+
+			return err
 		}
 
 		server := &http.Server{
@@ -111,8 +113,8 @@ func main() {
 			TLSConfig: tlsConfig,
 		}
 
-		err = server.ListenAndServeTLS("", "")
+		return server.ListenAndServeTLS("", "")
 	} else {
-		log.Fatal(router.Run(":" + port))
+		return router.Run(":" + port)
 	}
 }

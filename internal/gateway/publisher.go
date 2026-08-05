@@ -34,10 +34,9 @@ func StartPublisher(db *gorm.DB) {
 
 func publish(db *gorm.DB) error {
 	gatewayURL := "https://gateway.beshence.com/api"
-
 	bankID := settings.GetBankID(db)
 
-	token, err := GetGatewayToken(db, gatewayURL, bankID)
+	token, err := GetGatewayToken(db)
 
 	if err != nil {
 		return err

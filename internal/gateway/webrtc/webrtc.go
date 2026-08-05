@@ -1,6 +1,8 @@
 package webrtc
 
 import (
+	"bank/internal/gateway"
+	"bank/internal/settings"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,6 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/pion/webrtc/v4"
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -39,39 +42,34 @@ type Transport struct {
 
 	Mu sync.RWMutex
 
-	BankID string
-	Token  string
-
 	ctx context.Context
 }
 
 func Start(
-	bankID string,
-	token string,
+	db *gorm.DB,
 	router http.Handler,
 ) error {
 	t := &Transport{
 		Peers:  make(map[string]*Peer),
 		Router: router,
-		BankID: bankID,
-		Token:  token,
 		ctx:    context.Background(),
 	}
 
-	go t.reconnectLoop()
+	go t.reconnectLoop(db)
 
 	return nil
 }
 
-func (t *Transport) reconnectLoop() {
+func (t *Transport) reconnectLoop(db *gorm.DB) {
 	delay := time.Second
 
 	for {
-		err := t.connect()
+		err := t.connect(db)
 
 		if err == nil {
 			// listen ended so WS disconnected
 			log.Println("[gateway/webrtc] websocket disconnected")
+			delay = time.Second
 		} else {
 			log.Println("[gateway/webrtc] connection error:", err)
 		}
@@ -87,21 +85,20 @@ func (t *Transport) reconnectLoop() {
 		time.Sleep(wait)
 
 		delay *= 2
-
-		if delay > time.Minute {
-			delay = time.Minute
-		}
 	}
 }
 
-func (t *Transport) connect() error {
-
+func (t *Transport) connect(db *gorm.DB) error {
 	ctx := context.Background()
+	bankID := settings.GetBankID(db)
 
-	wsURL :=
-		"wss://gateway.beshence.com/api/bank/" +
-			t.BankID +
-			"/ws?role=bank"
+	wsURL := "wss://gateway.beshence.com/api/bank/" + bankID + "/ws?role=bank"
+
+	token, err := gateway.GetGatewayToken(db)
+
+	if err != nil {
+		return err
+	}
 
 	ws, _, err := websocket.Dial(
 		ctx,
@@ -109,7 +106,7 @@ func (t *Transport) connect() error {
 		&websocket.DialOptions{
 			HTTPHeader: map[string][]string{
 				"Authorization": {
-					"Bearer " + t.Token,
+					"Bearer " + token,
 				},
 			},
 		},
@@ -120,16 +117,19 @@ func (t *Transport) connect() error {
 	}
 
 	t.Mu.Lock()
-
 	t.WS = ws
-
 	t.Mu.Unlock()
 
-	log.Println(
-		"[gateway/webrtc] connected",
+	log.Println("[gateway/webrtc] connected")
+
+	err = t.listen()
+
+	_ = ws.Close(
+		websocket.StatusNormalClosure,
+		"reconnecting",
 	)
 
-	return t.listen()
+	return err
 }
 
 func (t *Transport) listen() error {
@@ -138,28 +138,18 @@ func (t *Transport) listen() error {
 	for {
 		var msg Message
 
-		err := wsjson.Read(
-			ctx,
-			t.WS,
-			&msg,
-		)
+		err := wsjson.Read(ctx, t.WS, &msg)
 
 		if err != nil {
-			log.Println(
-				"[gateway/webrtc] websocket closed:",
-				err,
-			)
+			log.Println("[gateway/webrtc] websocket closed:", err)
 			return err
 		}
 
 		switch msg.Type {
-
 		case "offer":
 			t.handleOffer(msg)
-
 		case "candidate":
 			t.handleCandidate(msg)
-
 		}
 	}
 }
@@ -178,10 +168,7 @@ func (t *Transport) handleOffer(msg Message) {
 	)
 
 	if err != nil {
-		log.Println(
-			"create peer connection:",
-			err,
-		)
+		log.Println("create peer connection:", err)
 		return
 	}
 
@@ -195,7 +182,6 @@ func (t *Transport) handleOffer(msg Message) {
 
 	pc.OnICECandidate(
 		func(candidate *webrtc.ICECandidate) {
-
 			if candidate == nil {
 				return
 			}
@@ -216,20 +202,15 @@ func (t *Transport) handleOffer(msg Message) {
 
 	pc.OnConnectionStateChange(
 		func(state webrtc.PeerConnectionState) {
-
 			log.Println(
 				"[gateway/webrtc/"+msg.SessionID+"] client changed connection state to", state,
 			)
-
 		},
 	)
 
 	pc.OnDataChannel(
 		func(dc *webrtc.DataChannel) {
-
-			log.Println(
-				"[gateway/webrtc/"+msg.SessionID+"] opened datachannel:", dc.Label(),
-			)
+			log.Println("[gateway/webrtc/"+msg.SessionID+"] opened datachannel:", dc.Label())
 
 			t.Mu.Lock()
 
@@ -241,45 +222,26 @@ func (t *Transport) handleOffer(msg Message) {
 
 			dc.OnMessage(
 				func(message webrtc.DataChannelMessage) {
-
-					/*log.Println(
-						"[gateway/webrtc/"+msg.SessionID+"] received datachannel message:",
-						string(message.Data),
-					)*/
-
 					var req Request
 
-					err := json.Unmarshal(
-						message.Data,
-						&req,
-					)
+					err := json.Unmarshal(message.Data, &req)
 
 					if err != nil {
 						return
 					}
 
-					response := HandleEndpoints(
-						t.Router,
-						req,
-					)
+					response := HandleEndpoints(t.Router, req)
 
-					data, err := json.Marshal(
-						response,
-					)
+					data, err := json.Marshal(response)
 
 					if err != nil {
 						return
 					}
 
-					err = dc.Send(
-						data,
-					)
+					err = dc.Send(data)
 
 					if err != nil {
-						fmt.Println(
-							"send error:",
-							err,
-						)
+						fmt.Println("send error:", err)
 					}
 
 				},
@@ -339,7 +301,6 @@ func (t *Transport) handleOffer(msg Message) {
 }
 
 func (t *Transport) handleCandidate(msg Message) {
-
 	t.Mu.RLock()
 
 	peer, ok := t.Peers[msg.SessionID]
@@ -360,7 +321,6 @@ func (t *Transport) handleCandidate(msg Message) {
 
 	if err != nil {
 		log.Println("add ice candidate:", err)
-
 		return
 	}
 }

@@ -31,7 +31,10 @@ type tokenResponse struct {
 	AccessToken string `json:"token"`
 }
 
-func GetGatewayToken(db *gorm.DB, gatewayURL string, bankID string) (string, error) {
+func GetGatewayToken(db *gorm.DB) (string, error) {
+	gatewayURL := "https://gateway.beshence.com/api"
+	bankID := settings.GetBankID(db)
+
 	tokenMu.Lock()
 	defer tokenMu.Unlock()
 

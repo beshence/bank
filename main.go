@@ -76,17 +76,7 @@ func main() {
 
 	gateway.StartPublisher(db)
 
-	gatewayURL := "https://gateway.beshence.com/api"
-
-	bankID := settings.GetBankID(db)
-
-	token, err := gateway.GetGatewayToken(db, gatewayURL, bankID)
-
-	if err != nil {
-		panic(err)
-	}
-
-	err = webrtc.Start(bankID, token, router)
+	err = webrtc.Start(db, router)
 
 	if err != nil {
 		panic(err)

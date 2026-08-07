@@ -17,7 +17,7 @@ func GetPublicKeyV1(deps *api.Dependencies) gin.HandlerFunc {
 
 		c.JSON(http.StatusOK, gin.H{
 			"err": "0",
-			"ek":  settings.GetBankPublicKeyBase64(deps.DB),
+			"pk":  settings.GetBankPublicKeyBase64(deps.DB),
 		})
 	}
 }

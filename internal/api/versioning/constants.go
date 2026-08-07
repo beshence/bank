@@ -27,7 +27,7 @@ func GetVersionedEndpoints(deps *api.Dependencies) VersionedEndpoints {
 		VersionV1dot0dot0: {
 			http.MethodGet: {
 				"/ping":                  misc.PingV1(deps, supportedVersions),
-				"/ek":                    misc.EKV1(deps),
+				"/pk":                    misc.GetPublicKeyV1(deps),
 				"/ca":                    misc.GetCAV1(deps),
 				"/auth/me":               auth.RequireAuth(deps.AccessJWTManager, deps.DB, authend.MeV1(deps)),
 				"/auth/refresh":          auth.RequireAuth(deps.RefreshJWTManager, deps.DB, authend.RefreshV1(deps)),
@@ -39,7 +39,7 @@ func GetVersionedEndpoints(deps *api.Dependencies) VersionedEndpoints {
 					"chain/:chainName/event/last": auth.RequireAuth(deps.AccessJWTManager, deps.DB, bank.LastEventV1(deps)),
 			},
 			http.MethodPost: {
-				"/ca":                   misc.PostCAV1(deps),
+				//"/ca":                   misc.PostCAV1(deps),
 				"/auth/register":        authend.RegisterV1(deps),
 				"/auth/login":           authend.LoginV1(deps),
 				"/vault":                auth.RequireAuth(deps.AccessJWTManager, deps.DB, bank.CreateVaultV1(deps)),

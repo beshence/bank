@@ -2,16 +2,15 @@ package gateway
 
 import (
 	"bank/internal/settings"
-	"crypto/hmac"
-	"crypto/sha3"
+	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"hash"
 	"log"
 	"sync"
 	"time"
 
+	"github.com/cloudflare/circl/sign/slhdsa"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
@@ -24,7 +23,7 @@ var (
 )
 
 type challengeResponse struct {
-	Ciphertext string `json:"ciphertext"`
+	Nonce string `json:"nonce"`
 }
 
 type tokenResponse struct {
@@ -59,7 +58,8 @@ func requestNewGatewayToken(
 	gatewayURL string,
 	bankID string,
 ) (string, error) {
-	_, ek, err := settings.GetBankKeypair(db)
+	privateKey, publicKey, err := settings.GetBankKeypair(db)
+	publicKeyBytes, _ := publicKey.MarshalBinary()
 
 	if err != nil {
 		return "", err
@@ -67,15 +67,12 @@ func requestNewGatewayToken(
 
 	// 1. publish EK
 
-	ekBase64 := base64.RawURLEncoding.EncodeToString(
-		ek.Bytes(),
-	)
+	publicKeyB64 := base64.RawURLEncoding.EncodeToString(publicKeyBytes)
 
 	_, err = post(
-		gatewayURL+"/bank/"+bankID+"/ek",
+		gatewayURL+"/bank/"+bankID+"/pk",
 		map[string]string{
-			"bankId": bankID,
-			"ek":     ekBase64,
+			"pk": publicKeyB64,
 		},
 		"",
 	)
@@ -106,41 +103,45 @@ func requestNewGatewayToken(
 		return "", err
 	}
 
-	ciphertext, err := base64.RawURLEncoding.DecodeString(
-		challenge.Ciphertext,
+	nonce, err := base64.RawURLEncoding.DecodeString(
+		challenge.Nonce,
 	)
 
 	if err != nil {
 		return "", err
 	}
 
-	// 3. decapsulate
+	// 3. sign
 
-	dk, err := settings.GetBankDecapsulationKey(db)
+	domain := "BESHENCE-BANK-GATEWAY-PASS-CHALLENGE-V1"
 
-	if err != nil {
-		return "", err
-	}
+	message := make([]byte, 0, len(domain)+len(nonce))
 
-	sharedSecret, err := dk.Decapsulate(ciphertext)
-
-	if err != nil {
-		return "", err
-	}
-
-	// 4. proof
-
-	proof := makeProof(
-		sharedSecret,
-		ciphertext,
+	message = append(
+		message,
+		[]byte(domain)...,
 	)
 
-	// 5. JWT
+	message = append(
+		message,
+		nonce...,
+	)
+
+	signature, err := slhdsa.SignRandomized(
+		&privateKey,
+		rand.Reader,
+		slhdsa.NewMessage(message),
+		nil,
+	)
+
+	signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
+
+	// 4. JWT
 
 	tokenRaw, err := post(
 		gatewayURL+"/bank/"+bankID+"/challenge",
 		map[string]string{
-			"proof": base64.RawURLEncoding.EncodeToString(proof),
+			"s": signatureB64,
 		},
 		"",
 	)
@@ -163,19 +164,6 @@ func requestNewGatewayToken(
 	log.Println("[gateway] got token")
 
 	return token.AccessToken, nil
-}
-
-func makeProof(key []byte, data []byte) []byte {
-	h := hmac.New(
-		func() hash.Hash {
-			return sha3.New256()
-		},
-		key,
-	)
-
-	h.Write(data)
-
-	return h.Sum(nil)
 }
 
 func parseTokenExpiry(

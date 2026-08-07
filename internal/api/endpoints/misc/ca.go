@@ -5,10 +5,6 @@ import (
 	"bank/internal/settings"
 	"os"
 
-	"crypto/hmac"
-	"crypto/sha3"
-	"encoding/base64"
-	hashlib "hash"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -45,7 +41,7 @@ func GetCAV1(deps *api.Dependencies) gin.HandlerFunc {
 	}
 }
 
-func PostCAV1(deps *api.Dependencies) gin.HandlerFunc {
+/*func PostCAV1(deps *api.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		disableTls := os.Getenv("BANK_DISABLE_TLS")
 		disableTlsBool := false
@@ -89,7 +85,7 @@ func PostCAV1(deps *api.Dependencies) gin.HandlerFunc {
 			return
 		}
 
-		dk, err := settings.GetBankDecapsulationKey(deps.DB)
+		dk, err := settings.GetBankPrivateKey(deps.DB)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{
@@ -136,4 +132,4 @@ func PostCAV1(deps *api.Dependencies) gin.HandlerFunc {
 			),
 		})
 	}
-}
+}*/

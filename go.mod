@@ -3,6 +3,7 @@ module bank
 go 1.26
 
 require (
+	github.com/cloudflare/circl v1.6.5
 	github.com/coder/websocket v1.8.15
 	github.com/gin-contrib/cors v1.7.7
 	github.com/gin-gonic/gin v1.12.0

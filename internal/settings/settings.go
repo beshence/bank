@@ -4,7 +4,6 @@ import (
 	"bank/internal/database/models"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/mlkem"
 	"crypto/rand"
 	"crypto/sha3"
 	"crypto/x509"
@@ -18,18 +17,19 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudflare/circl/sign/slhdsa"
 	"gorm.io/gorm"
 )
 
 var (
-	bankDecapsulationKey           *mlkem.DecapsulationKey1024
-	bankDecapsulationKeyErr        error
-	bankEncapsulationKey           *mlkem.EncapsulationKey1024
-	bankKeypairOnce                sync.Once
-	bankEncapsulationKeyBase64     string
-	bankEncapsulationKeyBase64Once sync.Once
-	bankID                         string
-	bankIDOnce                     sync.Once
+	bankPrivateKey          slhdsa.PrivateKey
+	bankPrivateKeyErr       error
+	bankPublicKey           slhdsa.PublicKey
+	bankKeypairOnce         sync.Once
+	bankPublicKeyBase64     string
+	bankPublicKeyBase64Once sync.Once
+	bankID                  string
+	bankIDOnce              sync.Once
 
 	bankCAKey     *ecdsa.PrivateKey
 	bankCACert    *x509.Certificate
@@ -40,85 +40,100 @@ var (
 )
 
 const (
-	SettingDecapsulationKey = "bank_decapsulation_key"
-	SettingCAKey            = "bank_tls_ca_private_key"
-	SettingCACert           = "bank_tls_ca_certificate"
+	SettingPrivateKey = "bank_private_key"
+	SettingCAKey      = "bank_tls_ca_private_key"
+	SettingCACert     = "bank_tls_ca_certificate"
 )
 
-func loadOrGenerateBankKeypair(db *gorm.DB) (*mlkem.DecapsulationKey1024, *mlkem.EncapsulationKey1024, error) {
+func loadOrGenerateBankKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
 	var setting models.Setting
-	var decapsulationKey *mlkem.DecapsulationKey1024
+	var privateKey slhdsa.PrivateKey
 
-	err := db.First(&setting, "key = ?", SettingDecapsulationKey).Error
+	err := db.First(&setting, "key = ?", SettingPrivateKey).Error
 
 	switch {
 	case err == nil:
 		raw, err := base64.RawURLEncoding.DecodeString(setting.Value)
 		if err != nil {
-			return nil, nil, err
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
 		}
 
-		decapsulationKey, err = mlkem.NewDecapsulationKey1024(raw)
+		privateKey = slhdsa.PrivateKey{ID: slhdsa.SHAKE_256s}
+		err = privateKey.UnmarshalBinary(raw)
 		if err != nil {
-			return nil, nil, err
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
 		}
-
+		break
 	case errors.Is(err, gorm.ErrRecordNotFound):
-		decapsulationKey, err = mlkem.GenerateKey1024()
+		_, privateKey, err = slhdsa.GenerateKey(
+			rand.Reader,
+			slhdsa.SHAKE_256s,
+		)
 		if err != nil {
-			return nil, nil, err
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
+		}
+
+		privateKeyBytes, err := privateKey.MarshalBinary()
+		if err != nil {
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
 		}
 
 		err = db.Create(&models.Setting{
-			Key:   SettingDecapsulationKey,
-			Value: base64.RawURLEncoding.EncodeToString(decapsulationKey.Bytes()),
+			Key:   SettingPrivateKey,
+			Value: base64.RawURLEncoding.EncodeToString(privateKeyBytes),
 		}).Error
 
 		if err != nil {
-			return nil, nil, err
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
 		}
-
+		break
 	default:
-		return nil, nil, err
+		if err != nil {
+			return slhdsa.PrivateKey{}, slhdsa.PublicKey{}, err
+		}
+		break
 	}
 
-	return decapsulationKey, decapsulationKey.EncapsulationKey(), nil
+	return privateKey, privateKey.PublicKey(), nil
 }
 
 func loadOrGenerateBankKeypairOnce(db *gorm.DB) {
 	bankKeypairOnce.Do(func() {
-		bankDecapsulationKey, bankEncapsulationKey, bankDecapsulationKeyErr = loadOrGenerateBankKeypair(db)
+		bankPrivateKey, bankPublicKey, bankPrivateKeyErr = loadOrGenerateBankKeypair(db)
 	})
 }
 
-func GetBankKeypair(db *gorm.DB) (*mlkem.DecapsulationKey1024, *mlkem.EncapsulationKey1024, error) {
+func GetBankKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
 	loadOrGenerateBankKeypairOnce(db)
-	return bankDecapsulationKey, bankEncapsulationKey, bankDecapsulationKeyErr
+	return bankPrivateKey, bankPublicKey, bankPrivateKeyErr
 }
 
-func GetBankDecapsulationKey(db *gorm.DB) (*mlkem.DecapsulationKey1024, error) {
+func GetBankPrivateKey(db *gorm.DB) (slhdsa.PrivateKey, error) {
 	loadOrGenerateBankKeypairOnce(db)
-	return bankDecapsulationKey, bankDecapsulationKeyErr
+	return bankPrivateKey, bankPrivateKeyErr
 }
 
-func GetBankEncapsulationKey(db *gorm.DB) (*mlkem.EncapsulationKey1024, error) {
+func GetBankPublicKey(db *gorm.DB) (slhdsa.PublicKey, error) {
 	loadOrGenerateBankKeypairOnce(db)
-	return bankEncapsulationKey, bankDecapsulationKeyErr
+	return bankPublicKey, bankPrivateKeyErr
 }
 
-func GetBankEncapsulationKeyBase64(db *gorm.DB) string {
-	bankEncapsulationKeyBase64Once.Do(func() {
-		key, _ := GetBankEncapsulationKey(db)
-		bankEncapsulationKeyBase64 = base64.RawURLEncoding.EncodeToString(key.Bytes())
+func GetBankPublicKeyBase64(db *gorm.DB) string {
+	bankPublicKeyBase64Once.Do(func() {
+		key, _ := GetBankPublicKey(db)
+		keyBytes, _ := key.MarshalBinary()
+		bankPublicKeyBase64 = base64.RawURLEncoding.EncodeToString(keyBytes)
 	})
-	return bankEncapsulationKeyBase64
+	return bankPublicKeyBase64
 }
 
-func getBankID(key *mlkem.EncapsulationKey1024) string {
+func getBankID(key slhdsa.PublicKey) string {
 	h := sha3.New256()
 
+	keyBytes, _ := key.MarshalBinary()
+
 	h.Write([]byte("BESHENCE-BANK-ID-V1"))
-	h.Write(key.Bytes())
+	h.Write(keyBytes)
 
 	encoder := base32.StdEncoding.WithPadding(base32.NoPadding)
 	encodedStr := encoder.EncodeToString(h.Sum(nil))
@@ -127,7 +142,7 @@ func getBankID(key *mlkem.EncapsulationKey1024) string {
 
 func getBankIDOnce(db *gorm.DB) {
 	bankIDOnce.Do(func() {
-		key, _ := GetBankEncapsulationKey(db)
+		key, _ := GetBankPublicKey(db)
 		bankID = getBankID(key)
 	})
 }

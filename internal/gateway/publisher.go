@@ -45,7 +45,7 @@ func publish(db *gorm.DB) error {
 	_, err = post(
 		gatewayURL+"/bank/"+bankID+"/urls",
 		map[string][]string{
-			"api_urls": settings.GetAPIUrls(),
+			"urls": settings.GetAPIUrls(),
 		},
 		token,
 	)

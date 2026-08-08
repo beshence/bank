@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
 	"github.com/cloudflare/circl/sign/slhdsa"
 	"gorm.io/gorm"
 )
@@ -25,11 +26,22 @@ var (
 	bankRootPrivateKey          slhdsa.PrivateKey
 	bankRootPrivateKeyErr       error
 	bankRootPublicKey           slhdsa.PublicKey
-	bankKeypairOnce             sync.Once
+	bankRootKeypairOnce         sync.Once
 	bankRootPublicKeyBase64     string
 	bankRootPublicKeyBase64Once sync.Once
 	bankID                      string
 	bankIDOnce                  sync.Once
+
+	bankLeafPrivateKey          mldsa87.PrivateKey
+	bankLeafPrivateKeyErr       error
+	bankLeafPublicKey           mldsa87.PublicKey
+	bankLeafKeypairOnce         sync.Once
+	bankLeafPublicKeyBase64     string
+	bankLeafPublicKeyBase64Once sync.Once
+
+	bankLeafSignature     []byte
+	bankLeafSignatureErr  error
+	bankLeafSignatureOnce sync.Once
 
 	bankCAKey     *ecdsa.PrivateKey
 	bankCACert    *x509.Certificate
@@ -40,16 +52,18 @@ var (
 )
 
 const (
-	SettingPrivateKey = "bank_private_key"
-	SettingCAKey      = "bank_tls_ca_private_key"
-	SettingCACert     = "bank_tls_ca_certificate"
+	SettingRootPrivateKey = "bank_root_private_key"
+	SettingLeafPrivateKey = "bank_leaf_private_key"
+	SettingLeafSignature  = "bank_leaf_signature"
+	SettingCAKey          = "bank_tls_ca_private_key"
+	SettingCACert         = "bank_tls_ca_certificate"
 )
 
 func loadOrGenerateBankRootKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
 	var setting models.Setting
 	var privateKey slhdsa.PrivateKey
 
-	err := db.First(&setting, "key = ?", SettingPrivateKey).Error
+	err := db.First(&setting, "key = ?", SettingRootPrivateKey).Error
 
 	switch {
 	case err == nil:
@@ -79,7 +93,7 @@ func loadOrGenerateBankRootKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.Publi
 		}
 
 		err = db.Create(&models.Setting{
-			Key:   SettingPrivateKey,
+			Key:   SettingRootPrivateKey,
 			Value: base64.RawURLEncoding.EncodeToString(privateKeyBytes),
 		}).Error
 
@@ -98,7 +112,7 @@ func loadOrGenerateBankRootKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.Publi
 }
 
 func loadOrGenerateBankRootKeypairOnce(db *gorm.DB) {
-	bankKeypairOnce.Do(func() {
+	bankRootKeypairOnce.Do(func() {
 		bankRootPrivateKey, bankRootPublicKey, bankRootPrivateKeyErr = loadOrGenerateBankRootKeypair(db)
 	})
 }
@@ -150,6 +164,179 @@ func getBankIDOnce(db *gorm.DB) {
 func GetBankID(db *gorm.DB) string {
 	getBankIDOnce(db)
 	return bankID
+}
+
+func loadOrGenerateBankLeafKeypair(db *gorm.DB) (mldsa87.PrivateKey, mldsa87.PublicKey, error) {
+	var setting models.Setting
+	var privateKey mldsa87.PrivateKey
+
+	err := db.First(&setting, "key = ?", SettingLeafPrivateKey).Error
+
+	switch {
+	case err == nil:
+		raw, err := base64.RawURLEncoding.DecodeString(setting.Value)
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+
+		privateKey = mldsa87.PrivateKey{}
+		err = privateKey.UnmarshalBinary(raw)
+
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+		break
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		_, privateKey, err := mldsa87.GenerateKey(rand.Reader)
+
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+
+		privateKeyBytes, err := privateKey.MarshalBinary()
+
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+
+		err = db.Create(&models.Setting{
+			Key:   SettingLeafPrivateKey,
+			Value: base64.RawURLEncoding.EncodeToString(privateKeyBytes),
+		}).Error
+
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+		break
+	default:
+		if err != nil {
+			return mldsa87.PrivateKey{}, mldsa87.PublicKey{}, err
+		}
+		break
+	}
+
+	return privateKey, privateKey.Public().(mldsa87.PublicKey), nil
+}
+
+func loadOrGenerateBankLeafKeypairOnce(db *gorm.DB) {
+	bankLeafKeypairOnce.Do(func() {
+		bankLeafPrivateKey, bankLeafPublicKey, bankLeafPrivateKeyErr = loadOrGenerateBankLeafKeypair(db)
+	})
+}
+
+func GetBankLeafKeypair(db *gorm.DB) (mldsa87.PrivateKey, mldsa87.PublicKey, error) {
+	loadOrGenerateBankLeafKeypairOnce(db)
+	return bankLeafPrivateKey, bankLeafPublicKey, bankLeafPrivateKeyErr
+}
+
+func GetBankLeafPrivateKey(db *gorm.DB) (mldsa87.PrivateKey, error) {
+	loadOrGenerateBankLeafKeypairOnce(db)
+	return bankLeafPrivateKey, bankLeafPrivateKeyErr
+}
+
+func GetBankLeafPublicKey(db *gorm.DB) (mldsa87.PublicKey, error) {
+	loadOrGenerateBankLeafKeypairOnce(db)
+	return bankLeafPublicKey, bankLeafPrivateKeyErr
+}
+
+func GetBankLeafPublicKeyBase64(db *gorm.DB) string {
+	bankLeafPublicKeyBase64Once.Do(func() {
+		key, _ := GetBankLeafPublicKey(db)
+		keyBytes, _ := key.MarshalBinary()
+		bankLeafPublicKeyBase64 = base64.RawURLEncoding.EncodeToString(keyBytes)
+	})
+	return bankLeafPublicKeyBase64
+}
+
+func loadOrGenerateBankLeafSignature(db *gorm.DB) ([]byte, error) {
+	var setting models.Setting
+	var signature []byte
+
+	err := db.First(&setting, "key = ?", SettingLeafSignature).Error
+
+	switch {
+	case err == nil:
+		raw, err := base64.RawURLEncoding.DecodeString(setting.Value)
+
+		if err != nil {
+			return nil, err
+		}
+
+		signature = raw
+		break
+	case errors.Is(err, gorm.ErrRecordNotFound):
+		domain := "BESHENCE-BANK-MLDSA-KEY-V1"
+
+		_, mlDsaPublicKey, err := GetBankLeafKeypair(db)
+
+		if err != nil {
+			return nil, err
+		}
+
+		mlDsaPublicKeyBytes, err := mlDsaPublicKey.MarshalBinary()
+
+		if err != nil {
+			return nil, err
+		}
+
+		message := make([]byte, 0, len(domain)+len(mlDsaPublicKeyBytes))
+
+		message = append(
+			message,
+			[]byte(domain)...,
+		)
+
+		message = append(
+			message,
+			mlDsaPublicKeyBytes...,
+		)
+
+		bankRootPrivateKey, err := GetBankRootPrivateKey(db)
+
+		if err != nil {
+			return nil, err
+		}
+
+		signature, err = slhdsa.SignRandomized(
+			&bankRootPrivateKey,
+			rand.Reader,
+			slhdsa.NewMessage(message),
+			nil,
+		)
+
+		if err != nil {
+			return nil, err
+		}
+
+		err = db.Create(&models.Setting{
+			Key:   SettingLeafSignature,
+			Value: base64.RawURLEncoding.EncodeToString(signature),
+		}).Error
+
+		if err != nil {
+			return nil, err
+		}
+
+		break
+	default:
+		if err != nil {
+			return nil, err
+		}
+		break
+	}
+
+	return signature, nil
+}
+
+func loadOrGenerateBankLeafSignatureOnce(db *gorm.DB) {
+	bankLeafSignatureOnce.Do(func() {
+		bankLeafSignature, bankRootPrivateKeyErr = loadOrGenerateBankLeafSignature(db)
+	})
+}
+
+func GetBankLeafSignature(db *gorm.DB) ([]byte, error) {
+	loadOrGenerateBankLeafSignatureOnce(db)
+	return bankLeafSignature, bankLeafSignatureErr
 }
 
 func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error) {

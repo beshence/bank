@@ -16,11 +16,13 @@ func GetPublicKeysV1(deps *api.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"err":  "0",
-			"root": settings.GetBankRootPublicKeyBase64(deps.DB),
+			"err": "0",
+			"root": gin.H{
+				"pk": settings.GetBankRootPublicKeyBase64(deps.DB),
+			},
 			"leaf": gin.H{
-				"pk":  "",
-				"sig": "",
+				"pk":  settings.GetBankLeafPublicKeyBase64(deps.DB),
+				"sig": settings.GetBankLeafSignature(deps.DB),
 			},
 		})
 	}

@@ -22,7 +22,7 @@ func GetPublicKeysV1(deps *api.Dependencies) gin.HandlerFunc {
 			},
 			"leaf": gin.H{
 				"pk":  settings.GetBankLeafPublicKeyBase64(deps.DB),
-				"sig": settings.GetBankLeafSignature(deps.DB),
+				"sig": settings.GetBankLeafSignatureBase64(deps.DB),
 			},
 		})
 	}

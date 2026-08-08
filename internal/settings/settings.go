@@ -39,9 +39,11 @@ var (
 	bankLeafPublicKeyBase64     string
 	bankLeafPublicKeyBase64Once sync.Once
 
-	bankLeafSignature     []byte
-	bankLeafSignatureErr  error
-	bankLeafSignatureOnce sync.Once
+	bankLeafSignature           []byte
+	bankLeafSignatureErr        error
+	bankLeafSignatureOnce       sync.Once
+	bankLeafSignatureBase64     string
+	bankLeafSignatureBase64Once sync.Once
 
 	bankCAKey     *ecdsa.PrivateKey
 	bankCACert    *x509.Certificate
@@ -215,7 +217,7 @@ func loadOrGenerateBankLeafKeypair(db *gorm.DB) (mldsa87.PrivateKey, mldsa87.Pub
 		break
 	}
 
-	return privateKey, privateKey.Public().(mldsa87.PublicKey), nil
+	return privateKey, *(privateKey.Public().(*mldsa87.PublicKey)), nil
 }
 
 func loadOrGenerateBankLeafKeypairOnce(db *gorm.DB) {
@@ -337,6 +339,14 @@ func loadOrGenerateBankLeafSignatureOnce(db *gorm.DB) {
 func GetBankLeafSignature(db *gorm.DB) []byte {
 	loadOrGenerateBankLeafSignatureOnce(db)
 	return bankLeafSignature
+}
+
+func GetBankLeafSignatureBase64(db *gorm.DB) string {
+	bankLeafSignatureBase64Once.Do(func() {
+		signature := GetBankLeafSignature(db)
+		bankLeafSignatureBase64 = base64.RawURLEncoding.EncodeToString(signature)
+	})
+	return bankLeafSignatureBase64
 }
 
 func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error) {

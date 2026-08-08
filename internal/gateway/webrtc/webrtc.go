@@ -23,20 +23,23 @@ import (
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/pion/webrtc/v4"
+	"golang.org/x/crypto/chacha20poly1305"
 	"golang.org/x/crypto/hkdf"
 	"gorm.io/gorm"
 )
 
 type WebSocketMessage struct {
-	SessionID           string `json:"session_id,omitempty"`
+	SessionID           string `json:"session_id"`
 	Type                string `json:"type"`
 	EncapsulationKeyB64 string `json:"ek,omitempty"`
 	CiphertextB64       string `json:"ct,omitempty"`
 	SignatureB64        string `json:"sig,omitempty"`
+	NonceB64            string `json:"nonce,omitempty"`
+	MacB64              string `json:"mac,omitempty"`
 }
 
 type SignalingMessage struct {
-	SessionID     string  `json:"session_id,omitempty"`
+	SessionID     string  `json:"session_id"`
 	Type          string  `json:"type"`
 	SDP           string  `json:"sdp,omitempty"`
 	Candidate     string  `json:"candidate,omitempty"`
@@ -204,7 +207,8 @@ func (t *Transport) listen(db *gorm.DB) error {
 				return err
 			}
 
-			mlDsaPKSignature, err := slhdsa.SignRandomized(
+			// TODO: use it later
+			_, err = slhdsa.SignRandomized(
 				&bankPrivateKey,
 				cryptorand.Reader,
 				slhdsa.NewMessage(message),
@@ -215,9 +219,6 @@ func (t *Transport) listen(db *gorm.DB) error {
 				log.Fatal(err)
 				return err
 			}
-
-			print(mlDsaPrivateKey)
-			print(mlDsaPKSignature)
 
 			// 3. create ciphertext and shared secret from the client's encapsulation key
 
@@ -310,16 +311,19 @@ func (t *Transport) listen(db *gorm.DB) error {
 
 			break
 		case "encrypted_v1":
+			sigMsg, err := t.decryptSignaling(wsMsg)
+			if err != nil {
+				return err
+			}
+
+			switch sigMsg.Type {
+			case "offer":
+				t.handleOffer(sigMsg)
+			case "candidate":
+				t.handleCandidate(sigMsg)
+			}
 			break
 		}
-		/*
-			switch msg.Type {
-			case "offer":
-				t.handleOffer(msg)
-			case "candidate":
-				t.handleCandidate(msg)
-			}
-		*/
 	}
 }
 
@@ -376,72 +380,75 @@ func deriveKeys(sharedSecret []byte) (
 	return c2bKey, b2cKey, nil
 }
 
-/*func encryptJSON(
-	key []byte,
-	data any,
-) ([]byte, error) {
-
-	plaintext, err := json.Marshal(data)
+func (t *Transport) encryptSignaling(sigMsg SignalingMessage) (WebSocketMessage, error) {
+	aead, err := chacha20poly1305.New(t.Peers[sigMsg.SessionID].B2CKey)
 	if err != nil {
-		return nil, err
-	}
-
-	aead, err := chacha20poly1305.New(key)
-	if err != nil {
-		return nil, err
+		return WebSocketMessage{}, err
 	}
 
 	nonce := make([]byte, aead.NonceSize())
 
 	if _, err := cryptorand.Read(nonce); err != nil {
-		return nil, err
+		return WebSocketMessage{}, err
 	}
 
-	ciphertext := aead.Seal(
+	plaintext, err := json.Marshal(sigMsg)
+
+	sealed := aead.Seal(
 		nil,
 		nonce,
 		plaintext,
 		nil,
 	)
 
-	// отправляем nonce + ciphertext
-	return append(
-		nonce,
-		ciphertext...,
-	), nil
-}
+	tagSize := aead.Overhead()
 
-func decryptJSON(
-	key []byte,
-	packet []byte,
-	out any,
-) error {
-	aead, err := chacha20poly1305.New(key)
-	if err != nil {
-		return err
+	wsMsg := WebSocketMessage{
+		CiphertextB64: base64.RawURLEncoding.EncodeToString(sealed[:len(sealed)-tagSize]),
+		NonceB64:      base64.RawURLEncoding.EncodeToString(nonce),
+		MacB64:        base64.RawURLEncoding.EncodeToString(sealed[len(sealed)-tagSize:]),
 	}
 
-	nonceSize := aead.NonceSize()
+	return wsMsg, nil
+}
 
-	nonce := packet[:nonceSize]
-	ciphertext := packet[nonceSize:]
+func (t *Transport) decryptSignaling(wsMsg WebSocketMessage) (SignalingMessage, error) {
+	aead, err := chacha20poly1305.New(t.Peers[wsMsg.SessionID].C2BKey)
+	if err != nil {
+		return SignalingMessage{}, err
+	}
+
+	nonce, _ := base64.RawURLEncoding.DecodeString(wsMsg.NonceB64)
+	ciphertext, _ := base64.RawURLEncoding.DecodeString(wsMsg.CiphertextB64)
+	mac, _ := base64.RawURLEncoding.DecodeString(wsMsg.MacB64)
+
+	sealed := append(
+		ciphertext,
+		mac...,
+	)
 
 	plaintext, err := aead.Open(
 		nil,
 		nonce,
-		ciphertext,
+		sealed,
 		nil,
 	)
 
 	if err != nil {
-		return err
+		return SignalingMessage{}, err
 	}
 
-	return json.Unmarshal(
-		plaintext,
-		out,
-	)
-}*/
+	var signalingMessage SignalingMessage
+
+	err = json.Unmarshal(plaintext, &signalingMessage)
+	signalingMessage.SessionID = wsMsg.SessionID
+
+	if err != nil {
+		return SignalingMessage{}, err
+	}
+
+	return signalingMessage, nil
+}
 
 func (t *Transport) handleOffer(msg SignalingMessage) {
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] got signaling offer")
@@ -475,17 +482,15 @@ func (t *Transport) handleOffer(msg SignalingMessage) {
 				return
 			}
 
-			wsjson.Write(
-				context.Background(),
-				t.WS,
-				SignalingMessage{
-					SessionID:     msg.SessionID,
-					Type:          "candidate",
-					Candidate:     candidate.ToJSON().Candidate,
-					SDPMid:        candidate.ToJSON().SDPMid,
-					SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
-				},
-			)
+			wsMsg, _ := t.encryptSignaling(SignalingMessage{
+				SessionID:     msg.SessionID,
+				Type:          "candidate",
+				Candidate:     candidate.ToJSON().Candidate,
+				SDPMid:        candidate.ToJSON().SDPMid,
+				SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
+			})
+
+			wsjson.Write(context.Background(), t.WS, wsMsg)
 		},
 	)
 
@@ -566,16 +571,13 @@ func (t *Transport) handleOffer(msg SignalingMessage) {
 	if err != nil {
 		return
 	}
+	wsMsg, _ := t.encryptSignaling(SignalingMessage{
+		SessionID: msg.SessionID,
+		Type:      "answer",
+		SDP:       answer.SDP,
+	})
 
-	err = wsjson.Write(
-		context.Background(),
-		t.WS,
-		SignalingMessage{
-			SessionID: msg.SessionID,
-			Type:      "answer",
-			SDP:       answer.SDP,
-		},
-	)
+	err = wsjson.Write(context.Background(), t.WS, wsMsg)
 
 	if err != nil {
 		log.Println("send answer error:", err)

@@ -334,9 +334,9 @@ func loadOrGenerateBankLeafSignatureOnce(db *gorm.DB) {
 	})
 }
 
-func GetBankLeafSignature(db *gorm.DB) ([]byte, error) {
+func GetBankLeafSignature(db *gorm.DB) []byte {
 	loadOrGenerateBankLeafSignatureOnce(db)
-	return bankLeafSignature, bankLeafSignatureErr
+	return bankLeafSignature
 }
 
 func loadOrGenerateCA(db *gorm.DB) (*ecdsa.PrivateKey, *x509.Certificate, error) {

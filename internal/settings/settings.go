@@ -22,14 +22,14 @@ import (
 )
 
 var (
-	bankPrivateKey          slhdsa.PrivateKey
-	bankPrivateKeyErr       error
-	bankPublicKey           slhdsa.PublicKey
-	bankKeypairOnce         sync.Once
-	bankPublicKeyBase64     string
-	bankPublicKeyBase64Once sync.Once
-	bankID                  string
-	bankIDOnce              sync.Once
+	bankRootPrivateKey          slhdsa.PrivateKey
+	bankRootPrivateKeyErr       error
+	bankRootPublicKey           slhdsa.PublicKey
+	bankKeypairOnce             sync.Once
+	bankRootPublicKeyBase64     string
+	bankRootPublicKeyBase64Once sync.Once
+	bankID                      string
+	bankIDOnce                  sync.Once
 
 	bankCAKey     *ecdsa.PrivateKey
 	bankCACert    *x509.Certificate
@@ -45,7 +45,7 @@ const (
 	SettingCACert     = "bank_tls_ca_certificate"
 )
 
-func loadOrGenerateBankKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
+func loadOrGenerateBankRootKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
 	var setting models.Setting
 	var privateKey slhdsa.PrivateKey
 
@@ -97,34 +97,34 @@ func loadOrGenerateBankKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey
 	return privateKey, privateKey.PublicKey(), nil
 }
 
-func loadOrGenerateBankKeypairOnce(db *gorm.DB) {
+func loadOrGenerateBankRootKeypairOnce(db *gorm.DB) {
 	bankKeypairOnce.Do(func() {
-		bankPrivateKey, bankPublicKey, bankPrivateKeyErr = loadOrGenerateBankKeypair(db)
+		bankRootPrivateKey, bankRootPublicKey, bankRootPrivateKeyErr = loadOrGenerateBankRootKeypair(db)
 	})
 }
 
-func GetBankKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
-	loadOrGenerateBankKeypairOnce(db)
-	return bankPrivateKey, bankPublicKey, bankPrivateKeyErr
+func GetBankRootKeypair(db *gorm.DB) (slhdsa.PrivateKey, slhdsa.PublicKey, error) {
+	loadOrGenerateBankRootKeypairOnce(db)
+	return bankRootPrivateKey, bankRootPublicKey, bankRootPrivateKeyErr
 }
 
-func GetBankPrivateKey(db *gorm.DB) (slhdsa.PrivateKey, error) {
-	loadOrGenerateBankKeypairOnce(db)
-	return bankPrivateKey, bankPrivateKeyErr
+func GetBankRootPrivateKey(db *gorm.DB) (slhdsa.PrivateKey, error) {
+	loadOrGenerateBankRootKeypairOnce(db)
+	return bankRootPrivateKey, bankRootPrivateKeyErr
 }
 
-func GetBankPublicKey(db *gorm.DB) (slhdsa.PublicKey, error) {
-	loadOrGenerateBankKeypairOnce(db)
-	return bankPublicKey, bankPrivateKeyErr
+func GetBankRootPublicKey(db *gorm.DB) (slhdsa.PublicKey, error) {
+	loadOrGenerateBankRootKeypairOnce(db)
+	return bankRootPublicKey, bankRootPrivateKeyErr
 }
 
-func GetBankPublicKeyBase64(db *gorm.DB) string {
-	bankPublicKeyBase64Once.Do(func() {
-		key, _ := GetBankPublicKey(db)
+func GetBankRootPublicKeyBase64(db *gorm.DB) string {
+	bankRootPublicKeyBase64Once.Do(func() {
+		key, _ := GetBankRootPublicKey(db)
 		keyBytes, _ := key.MarshalBinary()
-		bankPublicKeyBase64 = base64.RawURLEncoding.EncodeToString(keyBytes)
+		bankRootPublicKeyBase64 = base64.RawURLEncoding.EncodeToString(keyBytes)
 	})
-	return bankPublicKeyBase64
+	return bankRootPublicKeyBase64
 }
 
 func getBankID(key slhdsa.PublicKey) string {
@@ -142,7 +142,7 @@ func getBankID(key slhdsa.PublicKey) string {
 
 func getBankIDOnce(db *gorm.DB) {
 	bankIDOnce.Do(func() {
-		key, _ := GetBankPublicKey(db)
+		key, _ := GetBankRootPublicKey(db)
 		bankID = getBankID(key)
 	})
 }

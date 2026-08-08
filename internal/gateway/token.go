@@ -58,8 +58,13 @@ func requestNewGatewayToken(
 	gatewayURL string,
 	bankID string,
 ) (string, error) {
-	privateKey, publicKey, err := settings.GetBankKeypair(db)
-	publicKeyBytes, _ := publicKey.MarshalBinary()
+	rootPrivateKey, rootPublicKey, err := settings.GetBankRootKeypair(db)
+
+	if err != nil {
+		return "", err
+	}
+
+	rootPublicKeyBytes, err := rootPublicKey.MarshalBinary()
 
 	if err != nil {
 		return "", err
@@ -67,12 +72,12 @@ func requestNewGatewayToken(
 
 	// 1. publish EK
 
-	publicKeyB64 := base64.RawURLEncoding.EncodeToString(publicKeyBytes)
+	rootPublicKeyB64 := base64.RawURLEncoding.EncodeToString(rootPublicKeyBytes)
 
 	_, err = post(
 		gatewayURL+"/bank/"+bankID+"/pk",
 		map[string]string{
-			"pk": publicKeyB64,
+			"pk": rootPublicKeyB64,
 		},
 		"",
 	)
@@ -128,7 +133,7 @@ func requestNewGatewayToken(
 	)
 
 	signature, err := slhdsa.SignRandomized(
-		&privateKey,
+		&rootPrivateKey,
 		rand.Reader,
 		slhdsa.NewMessage(message),
 		nil,

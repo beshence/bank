@@ -8,7 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetPublicKeyV1(deps *api.Dependencies) gin.HandlerFunc {
+func GetPublicKeysV1(deps *api.Dependencies) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if deps == nil || deps.DB == nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"err": "UNKNOWN", "errmsg": "database is not configured"})
@@ -16,8 +16,12 @@ func GetPublicKeyV1(deps *api.Dependencies) gin.HandlerFunc {
 		}
 
 		c.JSON(http.StatusOK, gin.H{
-			"err": "0",
-			"pk":  settings.GetBankPublicKeyBase64(deps.DB),
+			"err":  "0",
+			"root": settings.GetBankRootPublicKeyBase64(deps.DB),
+			"leaf": gin.H{
+				"pk":  "",
+				"sig": "",
+			},
 		})
 	}
 }

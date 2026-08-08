@@ -200,7 +200,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 				mlDsaPublicKeyBytes...,
 			)
 
-			bankPrivateKey, _ := settings.GetBankPrivateKey(db)
+			bankRootPrivateKey, _ := settings.GetBankRootPrivateKey(db)
 
 			if err != nil {
 				log.Fatal(err)
@@ -209,7 +209,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 
 			// TODO: use it later
 			_, err = slhdsa.SignRandomized(
-				&bankPrivateKey,
+				&bankRootPrivateKey,
 				cryptorand.Reader,
 				slhdsa.NewMessage(message),
 				nil,

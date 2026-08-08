@@ -117,7 +117,7 @@ func GetCAV1(deps *api.Dependencies) gin.HandlerFunc {
 		)
 
 		mac.Write([]byte(
-			"BESHENCE_BANK_CA_V1",
+			"BESHENCE-BANK-CA-V1",
 		))
 
 		mac.Write(hash[:])

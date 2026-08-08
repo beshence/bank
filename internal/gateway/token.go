@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/cloudflare/circl/sign/slhdsa"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
@@ -58,13 +59,7 @@ func requestNewGatewayToken(
 	gatewayURL string,
 	bankID string,
 ) (string, error) {
-	rootPrivateKey, rootPublicKey, err := settings.GetBankRootKeypair(db)
-
-	if err != nil {
-		return "", err
-	}
-
-	rootPublicKeyBytes, err := rootPublicKey.MarshalBinary()
+	rootPrivateKey, _, err := settings.GetBankRootKeypair(db)
 
 	if err != nil {
 		return "", err
@@ -72,14 +67,20 @@ func requestNewGatewayToken(
 
 	// 1. publish EK
 
-	rootPublicKeyB64 := base64.RawURLEncoding.EncodeToString(rootPublicKeyBytes)
+	rootPublicKeyB64 := settings.GetBankRootPublicKeyBase64(db)
+	leafPublicKeyB64 := settings.GetBankLeafPublicKeyBase64(db)
+	leafSignatureB64 := settings.GetBankLeafSignatureBase64(db)
 
 	_, err = post(
-		gatewayURL+"/bank/"+bankID+"/pk",
-		map[string]string{
-			"pk": rootPublicKeyB64,
-		},
-		"",
+		gatewayURL+"/bank/"+bankID+"/pk", gin.H{
+			"root": gin.H{
+				"pk": rootPublicKeyB64,
+			},
+			"leaf": gin.H{
+				"pk":  leafPublicKeyB64,
+				"sig": leafSignatureB64,
+			},
+		}, "",
 	)
 
 	if err != nil {

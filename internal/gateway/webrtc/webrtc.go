@@ -4,22 +4,42 @@ import (
 	"bank/internal/gateway"
 	"bank/internal/settings"
 	"context"
+	"crypto/mlkem"
+	cryptorand "crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"hash"
+	"io"
 	"log"
-	"math/rand"
+	mathrand "math/rand"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
+	"github.com/cloudflare/circl/sign/slhdsa"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/pion/webrtc/v4"
+	"golang.org/x/crypto/chacha20poly1305"
+	"golang.org/x/crypto/hkdf"
 	"gorm.io/gorm"
 )
 
-type Message struct {
-	SessionID     string  `json:"session_id,omitempty"`
+type WebSocketMessage struct {
+	SessionID           string `json:"session_id"`
+	Type                string `json:"type"`
+	EncapsulationKeyB64 string `json:"ek,omitempty"`
+	CiphertextB64       string `json:"ct,omitempty"`
+	SignatureB64        string `json:"sig,omitempty"`
+	NonceB64            string `json:"nonce,omitempty"`
+	MacB64              string `json:"mac,omitempty"`
+}
+
+type SignalingMessage struct {
+	SessionID     string  `json:"session_id"`
 	Type          string  `json:"type"`
 	SDP           string  `json:"sdp,omitempty"`
 	Candidate     string  `json:"candidate,omitempty"`
@@ -29,6 +49,8 @@ type Message struct {
 
 type Peer struct {
 	SessionID string
+	C2BKey    []byte
+	B2CKey    []byte
 	PC        *webrtc.PeerConnection
 	DC        *webrtc.DataChannel
 }
@@ -76,7 +98,7 @@ func (t *Transport) reconnectLoop(db *gorm.DB) {
 
 		// exponential backoff
 
-		jitter := time.Duration(rand.Intn(500)) * time.Millisecond
+		jitter := time.Duration(mathrand.Intn(500)) * time.Millisecond
 
 		wait := min(delay+jitter, time.Minute)
 
@@ -122,7 +144,7 @@ func (t *Transport) connect(db *gorm.DB) error {
 
 	log.Println("[gateway/webrtc] connected")
 
-	err = t.listen()
+	err = t.listen(db)
 
 	_ = ws.Close(
 		websocket.StatusNormalClosure,
@@ -132,29 +154,305 @@ func (t *Transport) connect(db *gorm.DB) error {
 	return err
 }
 
-func (t *Transport) listen() error {
+func (t *Transport) listen(db *gorm.DB) error {
 	ctx := context.Background()
 
 	for {
-		var msg Message
+		var wsMsg WebSocketMessage
 
-		err := wsjson.Read(ctx, t.WS, &msg)
+		err := wsjson.Read(ctx, t.WS, &wsMsg)
 
 		if err != nil {
 			log.Println("[gateway/webrtc] websocket closed:", err)
 			return err
 		}
 
-		switch msg.Type {
-		case "offer":
-			t.handleOffer(msg)
-		case "candidate":
-			t.handleCandidate(msg)
+		switch wsMsg.Type {
+		case "ch_v1":
+			// 1. generate ML-DSA as this is more resource effective unlike SLH-DSA
+
+			mlDsaPublicKey, mlDsaPrivateKey, err := mldsa87.GenerateKey(cryptorand.Reader)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			mlDsaPublicKeyBytes, err := mlDsaPublicKey.MarshalBinary()
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// 2. create its signature so we can tie ML-DSA to SLH-DSA
+
+			domain := "BESHENCE-BANK-MLDSA-KEY-V1"
+
+			message := make([]byte, 0, len(domain)+len(mlDsaPublicKeyBytes))
+
+			message = append(
+				message,
+				[]byte(domain)...,
+			)
+
+			message = append(
+				message,
+				mlDsaPublicKeyBytes...,
+			)
+
+			bankPrivateKey, _ := settings.GetBankPrivateKey(db)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// TODO: use it later
+			_, err = slhdsa.SignRandomized(
+				&bankPrivateKey,
+				cryptorand.Reader,
+				slhdsa.NewMessage(message),
+				nil,
+			)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// 3. create ciphertext and shared secret from the client's encapsulation key
+
+			encapsulationKeyBytes, err := base64.RawURLEncoding.DecodeString(wsMsg.EncapsulationKeyB64)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			encapsulationKey, err := mlkem.NewEncapsulationKey1024(encapsulationKeyBytes)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			sharedSecret, ciphertext := encapsulationKey.Encapsulate()
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// 4. sign encryption context
+
+			domain = "BESHENCE-BANK-SIGNALING-SIGN-CONTEXT-V1"
+
+			message = make([]byte, 0, len(domain)+len(encapsulationKeyBytes)+len(ciphertext))
+
+			message = append(
+				message,
+				[]byte(domain)...,
+			)
+
+			message = append(
+				message,
+				encapsulationKeyBytes...,
+			)
+
+			message = append(
+				message,
+				ciphertext...,
+			)
+
+			signature := make([]byte, mldsa87.SignatureSize)
+
+			err = mldsa87.SignTo(
+				mlDsaPrivateKey,
+				message,
+				nil,
+				true,
+				signature,
+			)
+
+			if err != nil {
+				log.Fatal(err)
+				return err
+			}
+
+			// 5. derive keys and preserve them
+
+			c2bKey, b2cKey, err := deriveKeys(sharedSecret)
+
+			t.Mu.Lock()
+
+			t.Peers[wsMsg.SessionID] = &Peer{
+				SessionID: wsMsg.SessionID,
+				C2BKey:    c2bKey,
+				B2CKey:    b2cKey,
+			}
+
+			t.Mu.Unlock()
+
+			// 6. send server hello
+
+			wsjson.Write(
+				context.Background(),
+				t.WS,
+				WebSocketMessage{
+					SessionID:     wsMsg.SessionID,
+					Type:          "sh_v1",
+					CiphertextB64: base64.RawURLEncoding.EncodeToString(ciphertext),
+					SignatureB64:  base64.RawURLEncoding.EncodeToString(signature),
+					//Candidate:     candidate.ToJSON().Candidate,
+					//SDPMid:        candidate.ToJSON().SDPMid,
+					//SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
+				},
+			)
+
+			break
+		case "ct_v1":
+			sigMsg, err := t.decryptSignaling(wsMsg)
+			if err != nil {
+				return err
+			}
+
+			switch sigMsg.Type {
+			case "offer":
+				t.handleOffer(sigMsg)
+			case "candidate":
+				t.handleCandidate(sigMsg)
+			}
+			break
 		}
 	}
 }
 
-func (t *Transport) handleOffer(msg Message) {
+func deriveKeys(sharedSecret []byte) (
+	c2bKey []byte,
+	b2cKey []byte,
+	err error,
+) {
+	sessionKey := make([]byte, 32)
+
+	h := hkdf.New(
+		func() hash.Hash {
+			return sha256.New()
+		},
+		sharedSecret,
+		nil,
+		[]byte("BESHENCE-BANK-SIGNALING-SESSION-KEY-V1"),
+	)
+
+	if _, err := io.ReadFull(h, sessionKey); err != nil {
+		return nil, nil, err
+	}
+
+	c2bKey = make([]byte, 32)
+
+	hClient := hkdf.New(
+		func() hash.Hash {
+			return sha256.New()
+		},
+		sessionKey,
+		nil,
+		[]byte("BESHENCE-BANK-SIGNALING-C2B-KEY-V1"),
+	)
+
+	if _, err := io.ReadFull(hClient, c2bKey); err != nil {
+		return nil, nil, err
+	}
+
+	b2cKey = make([]byte, 32)
+
+	hBank := hkdf.New(
+		func() hash.Hash {
+			return sha256.New()
+		},
+		sessionKey,
+		nil,
+		[]byte("BESHENCE-BANK-SIGNALING-B2C-KEY-V1"),
+	)
+
+	if _, err := io.ReadFull(hBank, b2cKey); err != nil {
+		return nil, nil, err
+	}
+
+	return c2bKey, b2cKey, nil
+}
+
+func (t *Transport) encryptSignaling(sigMsg SignalingMessage) (WebSocketMessage, error) {
+	aead, err := chacha20poly1305.New(t.Peers[sigMsg.SessionID].B2CKey)
+	if err != nil {
+		return WebSocketMessage{}, err
+	}
+
+	nonce := make([]byte, aead.NonceSize())
+
+	if _, err := cryptorand.Read(nonce); err != nil {
+		return WebSocketMessage{}, err
+	}
+
+	plaintext, err := json.Marshal(sigMsg)
+
+	sealed := aead.Seal(
+		nil,
+		nonce,
+		plaintext,
+		nil,
+	)
+
+	tagSize := aead.Overhead()
+
+	wsMsg := WebSocketMessage{
+		SessionID:     sigMsg.SessionID,
+		Type:          "ct_v1",
+		CiphertextB64: base64.RawURLEncoding.EncodeToString(sealed[:len(sealed)-tagSize]),
+		NonceB64:      base64.RawURLEncoding.EncodeToString(nonce),
+		MacB64:        base64.RawURLEncoding.EncodeToString(sealed[len(sealed)-tagSize:]),
+	}
+
+	return wsMsg, nil
+}
+
+func (t *Transport) decryptSignaling(wsMsg WebSocketMessage) (SignalingMessage, error) {
+	aead, err := chacha20poly1305.New(t.Peers[wsMsg.SessionID].C2BKey)
+	if err != nil {
+		return SignalingMessage{}, err
+	}
+
+	nonce, _ := base64.RawURLEncoding.DecodeString(wsMsg.NonceB64)
+	ciphertext, _ := base64.RawURLEncoding.DecodeString(wsMsg.CiphertextB64)
+	mac, _ := base64.RawURLEncoding.DecodeString(wsMsg.MacB64)
+
+	sealed := append(
+		ciphertext,
+		mac...,
+	)
+
+	plaintext, err := aead.Open(
+		nil,
+		nonce,
+		sealed,
+		nil,
+	)
+
+	if err != nil {
+		return SignalingMessage{}, err
+	}
+
+	var signalingMessage SignalingMessage
+
+	err = json.Unmarshal(plaintext, &signalingMessage)
+	signalingMessage.SessionID = wsMsg.SessionID
+
+	if err != nil {
+		return SignalingMessage{}, err
+	}
+
+	return signalingMessage, nil
+}
+
+func (t *Transport) handleOffer(msg SignalingMessage) {
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] got signaling offer")
 
 	pc, err := webrtc.NewPeerConnection(
@@ -186,17 +484,15 @@ func (t *Transport) handleOffer(msg Message) {
 				return
 			}
 
-			wsjson.Write(
-				context.Background(),
-				t.WS,
-				Message{
-					SessionID:     msg.SessionID,
-					Type:          "candidate",
-					Candidate:     candidate.ToJSON().Candidate,
-					SDPMid:        candidate.ToJSON().SDPMid,
-					SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
-				},
-			)
+			wsMsg, _ := t.encryptSignaling(SignalingMessage{
+				SessionID:     msg.SessionID,
+				Type:          "candidate",
+				Candidate:     candidate.ToJSON().Candidate,
+				SDPMid:        candidate.ToJSON().SDPMid,
+				SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
+			})
+
+			wsjson.Write(context.Background(), t.WS, wsMsg)
 		},
 	)
 
@@ -251,10 +547,7 @@ func (t *Transport) handleOffer(msg Message) {
 
 	t.Mu.Lock()
 
-	t.Peers[msg.SessionID] = &Peer{
-		SessionID: msg.SessionID,
-		PC:        pc,
-	}
+	t.Peers[msg.SessionID].PC = pc
 
 	t.Mu.Unlock()
 
@@ -280,16 +573,13 @@ func (t *Transport) handleOffer(msg Message) {
 	if err != nil {
 		return
 	}
+	wsMsg, _ := t.encryptSignaling(SignalingMessage{
+		SessionID: msg.SessionID,
+		Type:      "answer",
+		SDP:       answer.SDP,
+	})
 
-	err = wsjson.Write(
-		context.Background(),
-		t.WS,
-		Message{
-			SessionID: msg.SessionID,
-			Type:      "answer",
-			SDP:       answer.SDP,
-		},
-	)
+	err = wsjson.Write(context.Background(), t.WS, wsMsg)
 
 	if err != nil {
 		log.Println("send answer error:", err)
@@ -300,7 +590,7 @@ func (t *Transport) handleOffer(msg Message) {
 	log.Println("[gateway/webrtc/" + msg.SessionID + "] signaling answer sent")
 }
 
-func (t *Transport) handleCandidate(msg Message) {
+func (t *Transport) handleCandidate(msg SignalingMessage) {
 	t.Mu.RLock()
 
 	peer, ok := t.Peers[msg.SessionID]

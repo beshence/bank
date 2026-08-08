@@ -404,6 +404,8 @@ func (t *Transport) encryptSignaling(sigMsg SignalingMessage) (WebSocketMessage,
 	tagSize := aead.Overhead()
 
 	wsMsg := WebSocketMessage{
+		SessionID:     sigMsg.SessionID,
+		Type:          "encrypted_v1",
 		CiphertextB64: base64.RawURLEncoding.EncodeToString(sealed[:len(sealed)-tagSize]),
 		NonceB64:      base64.RawURLEncoding.EncodeToString(nonce),
 		MacB64:        base64.RawURLEncoding.EncodeToString(sealed[len(sealed)-tagSize:]),

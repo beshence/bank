@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/sha3"
+	"crypto/sha256"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base32"
@@ -128,7 +128,7 @@ func GetBankPublicKeyBase64(db *gorm.DB) string {
 }
 
 func getBankID(key slhdsa.PublicKey) string {
-	h := sha3.New256()
+	h := sha256.New()
 
 	keyBytes, _ := key.MarshalBinary()
 

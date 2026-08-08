@@ -19,7 +19,6 @@ import (
 	"time"
 
 	"github.com/cloudflare/circl/sign/mldsa/mldsa87"
-	"github.com/cloudflare/circl/sign/slhdsa"
 	"github.com/coder/websocket"
 	"github.com/coder/websocket/wsjson"
 	"github.com/pion/webrtc/v4"
@@ -169,58 +168,16 @@ func (t *Transport) listen(db *gorm.DB) error {
 
 		switch wsMsg.Type {
 		case "ch_v1":
-			// 1. generate ML-DSA as this is more resource effective unlike SLH-DSA
+			// 1. get ML-DSA leaf keypair
 
-			mlDsaPublicKey, mlDsaPrivateKey, err := mldsa87.GenerateKey(cryptorand.Reader)
-
-			if err != nil {
-				log.Fatal(err)
-				return err
-			}
-
-			mlDsaPublicKeyBytes, err := mlDsaPublicKey.MarshalBinary()
-			if err != nil {
-				log.Fatal(err)
-				return err
-			}
-
-			// 2. create its signature so we can tie ML-DSA to SLH-DSA
-
-			domain := "BESHENCE-BANK-MLDSA-KEY-V1"
-
-			message := make([]byte, 0, len(domain)+len(mlDsaPublicKeyBytes))
-
-			message = append(
-				message,
-				[]byte(domain)...,
-			)
-
-			message = append(
-				message,
-				mlDsaPublicKeyBytes...,
-			)
-
-			bankPrivateKey, _ := settings.GetBankPrivateKey(db)
+			mlDsaPrivateKey, err := settings.GetBankLeafPrivateKey(db)
 
 			if err != nil {
 				log.Fatal(err)
 				return err
 			}
 
-			// TODO: use it later
-			_, err = slhdsa.SignRandomized(
-				&bankPrivateKey,
-				cryptorand.Reader,
-				slhdsa.NewMessage(message),
-				nil,
-			)
-
-			if err != nil {
-				log.Fatal(err)
-				return err
-			}
-
-			// 3. create ciphertext and shared secret from the client's encapsulation key
+			// 2. create ciphertext and shared secret from the client's encapsulation key
 
 			encapsulationKeyBytes, err := base64.RawURLEncoding.DecodeString(wsMsg.EncapsulationKeyB64)
 
@@ -243,11 +200,11 @@ func (t *Transport) listen(db *gorm.DB) error {
 				return err
 			}
 
-			// 4. sign encryption context
+			// 3. sign encryption context
 
-			domain = "BESHENCE-BANK-SIGNALING-SIGN-CONTEXT-V1"
+			domain := "BESHENCE-BANK-SIGNALING-SIGN-CONTEXT-V1"
 
-			message = make([]byte, 0, len(domain)+len(encapsulationKeyBytes)+len(ciphertext))
+			message := make([]byte, 0, len(domain)+len(encapsulationKeyBytes)+len(ciphertext))
 
 			message = append(
 				message,
@@ -267,7 +224,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 			signature := make([]byte, mldsa87.SignatureSize)
 
 			err = mldsa87.SignTo(
-				mlDsaPrivateKey,
+				&mlDsaPrivateKey,
 				message,
 				nil,
 				true,
@@ -279,7 +236,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 				return err
 			}
 
-			// 5. derive keys and preserve them
+			// 4. derive keys and preserve them
 
 			c2bKey, b2cKey, err := deriveKeys(sharedSecret)
 
@@ -293,7 +250,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 
 			t.Mu.Unlock()
 
-			// 6. send server hello
+			// 5. send server hello
 
 			wsjson.Write(
 				context.Background(),
@@ -303,9 +260,6 @@ func (t *Transport) listen(db *gorm.DB) error {
 					Type:          "sh_v1",
 					CiphertextB64: base64.RawURLEncoding.EncodeToString(ciphertext),
 					SignatureB64:  base64.RawURLEncoding.EncodeToString(signature),
-					//Candidate:     candidate.ToJSON().Candidate,
-					//SDPMid:        candidate.ToJSON().SDPMid,
-					//SDPMLineIndex: candidate.ToJSON().SDPMLineIndex,
 				},
 			)
 

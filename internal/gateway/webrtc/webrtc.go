@@ -168,7 +168,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 		}
 
 		switch wsMsg.Type {
-		case "client_hello_v1":
+		case "ch_v1":
 			// 1. generate ML-DSA as this is more resource effective unlike SLH-DSA
 
 			mlDsaPublicKey, mlDsaPrivateKey, err := mldsa87.GenerateKey(cryptorand.Reader)
@@ -300,7 +300,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 				t.WS,
 				WebSocketMessage{
 					SessionID:     wsMsg.SessionID,
-					Type:          "server_hello_v1",
+					Type:          "sh_v1",
 					CiphertextB64: base64.RawURLEncoding.EncodeToString(ciphertext),
 					SignatureB64:  base64.RawURLEncoding.EncodeToString(signature),
 					//Candidate:     candidate.ToJSON().Candidate,
@@ -310,7 +310,7 @@ func (t *Transport) listen(db *gorm.DB) error {
 			)
 
 			break
-		case "encrypted_v1":
+		case "ct_v1":
 			sigMsg, err := t.decryptSignaling(wsMsg)
 			if err != nil {
 				return err
@@ -405,7 +405,7 @@ func (t *Transport) encryptSignaling(sigMsg SignalingMessage) (WebSocketMessage,
 
 	wsMsg := WebSocketMessage{
 		SessionID:     sigMsg.SessionID,
-		Type:          "encrypted_v1",
+		Type:          "ct_v1",
 		CiphertextB64: base64.RawURLEncoding.EncodeToString(sealed[:len(sealed)-tagSize]),
 		NonceB64:      base64.RawURLEncoding.EncodeToString(nonce),
 		MacB64:        base64.RawURLEncoding.EncodeToString(sealed[len(sealed)-tagSize:]),
